@@ -1,9 +1,7 @@
 package com.tdds.jh.ui.tierlist
 
-import android.Manifest
 import android.content.ContentValues
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
@@ -105,6 +103,9 @@ import com.tdds.jh.ui.tierlist.model.PresetOperation
 import com.tdds.jh.ui.tierlist.utils.saveBitmapToGallery
 import com.tdds.jh.ui.tierlist.utils.shareBitmap
 import com.tdds.jh.ui.tierlist.utils.saveTierListImage
+import com.tdds.jh.ui.tierlist.utils.PermissionUtils
+import com.tdds.jh.ui.tierlist.utils.withStoragePermission
+import com.tdds.jh.ui.tierlist.utils.ImageOperationUtils
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.layout.Arrangement
@@ -236,7 +237,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 
@@ -1507,13 +1507,8 @@ fun TierListMakerApp(
 
     // 应用启动时检查权限（仅申请权限，不自动打开图片选择器）
     LaunchedEffect(Unit) {
-        val permission = FileUtils.getReadStoragePermission()
-        if (ContextCompat.checkSelfPermission(
-                context,
-                permission
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(permission)
+        if (!PermissionUtils.hasStoragePermission(context)) {
+            PermissionUtils.requestStoragePermission(permissionLauncher)
         } else {
             // 已有权限，如果是首次启动则显示语言选择对话框
             if (shouldShowLanguageOnFirstLaunch) {
@@ -1530,15 +1525,12 @@ fun TierListMakerApp(
             isBadgePickerLaunching = true
             badgeSelectionTarget = target
             AppLogger.i("选择小图标$target: ${imageForBadge!!.id}")
-            val permission = FileUtils.getReadStoragePermission()
-            when {
-                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED -> {
-                    onSkipDraftSave?.invoke()
-                    badgeImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
-                else -> {
-                    permissionLauncher.launch(permission)
-                }
+            withStoragePermission(
+                context = context,
+                permissionLauncher = permissionLauncher,
+                onSkipDraftSave = onSkipDraftSave
+            ) {
+                badgeImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }
         }
     }
@@ -1564,15 +1556,12 @@ fun TierListMakerApp(
             isBadgePickerLaunching = true
             badgeSelectionTarget = 0 // 0 表示添加到工作目录，不设置到具体槽位
             AppLogger.i("添加新小图标到工作目录（多选模式，最多20张）")
-            val permission = FileUtils.getReadStoragePermission()
-            when {
-                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED -> {
-                    onSkipDraftSave?.invoke()
-                    badgeImagePickerMultiple.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
-                else -> {
-                    permissionLauncher.launch(permission)
-                }
+            withStoragePermission(
+                context = context,
+                permissionLauncher = permissionLauncher,
+                onSkipDraftSave = onSkipDraftSave
+            ) {
+                badgeImagePickerMultiple.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             }
         }
     }
@@ -1946,18 +1935,12 @@ fun TierListMakerApp(
                     // 打开图片选择器添加图片到待分级区域
                     if (!isImagePickerLaunching) {
                         isImagePickerLaunching = true
-                        val permission = FileUtils.getReadStoragePermission()
-                        when {
-                            ContextCompat.checkSelfPermission(
-                                context,
-                                permission
-                            ) == PackageManager.PERMISSION_GRANTED -> {
-                                onSkipDraftSave?.invoke()
-                                addToPendingPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            }
-                            else -> {
-                                permissionLauncher.launch(permission)
-                            }
+                        withStoragePermission(
+                            context = context,
+                            permissionLauncher = permissionLauncher,
+                            onSkipDraftSave = onSkipDraftSave
+                        ) {
+                            addToPendingPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         }
                     }
                 },
@@ -2058,68 +2041,26 @@ fun TierListMakerApp(
                                 AppLogger.i("取消选中图片: ${image.tierLabel}")
                             } else {
                                 // 已选中图片，单击其他图片交换位置
-                                val fromIndex = tierImages.indexOfFirst { it.id == selectedImageForDrag!!.id }
-                                val toIndex = tierImages.indexOfFirst { it.id == image.id }
-                                if (fromIndex != -1 && toIndex != -1 && fromIndex != toIndex) {
-                                    val fromImage = tierImages[fromIndex]
-                                    val toImage = tierImages[toIndex]
-
-                                    // 无论是否同一层级，都交换图片的uri（内容）、name（命名）、badgeUri（小图标）和originalUri（原图）
-                                    // 保持各自的id和tierLabel不变，这样图片在各自层级中的位置不变
-                                    val newFromImage = fromImage.copy(
-                                        uri = toImage.uri,
-                                        name = toImage.name,
-                                        badgeUri = toImage.badgeUri,
-                                        badgeUri2 = toImage.badgeUri2,
-                                        badgeUri3 = toImage.badgeUri3,
-                                        originalUri = toImage.originalUri,
-                                        cropPositionX = toImage.cropPositionX,
-                                        cropPositionY = toImage.cropPositionY,
-                                        cropScale = toImage.cropScale,
-                                        isCropped = toImage.isCropped,
-                                        cropRatio = toImage.cropRatio,
-                                        useCustomCrop = toImage.useCustomCrop,
-                                        customCropWidth = toImage.customCropWidth,
-                                        customCropHeight = toImage.customCropHeight
-                                    )
-                                    val newToImage = toImage.copy(
-                                        uri = fromImage.uri,
-                                        name = fromImage.name,
-                                        badgeUri = fromImage.badgeUri,
-                                        badgeUri2 = fromImage.badgeUri2,
-                                        badgeUri3 = fromImage.badgeUri3,
-                                        originalUri = fromImage.originalUri,
-                                        cropPositionX = fromImage.cropPositionX,
-                                        cropPositionY = fromImage.cropPositionY,
-                                        cropScale = fromImage.cropScale,
-                                        isCropped = fromImage.isCropped,
-                                        cropRatio = fromImage.cropRatio,
-                                        useCustomCrop = fromImage.useCustomCrop,
-                                        customCropWidth = fromImage.customCropWidth,
-                                        customCropHeight = fromImage.customCropHeight
-                                    )
-                                    tierImages[fromIndex] = newFromImage
-                                    tierImages[toIndex] = newToImage
-
-                                    // 更新相关引用，确保裁切、查看、替换等操作使用正确的图片数据
-                                    if (selectedImageForAction?.id == fromImage.id) {
-                                        selectedImageForAction = newFromImage
-                                    } else if (selectedImageForAction?.id == toImage.id) {
-                                        selectedImageForAction = newToImage
+                                ImageOperationUtils.swapImageContents(
+                                    tierImages = tierImages,
+                                    fromId = selectedImageForDrag!!.id,
+                                    toId = image.id,
+                                    onImageForActionUpdate = { updatedImage ->
+                                        if (selectedImageForAction?.id == updatedImage.id) {
+                                            selectedImageForAction = updatedImage
+                                        }
+                                    },
+                                    onImageToReplaceUpdate = { updatedImage ->
+                                        if (imageToReplace?.id == updatedImage.id) {
+                                            imageToReplace = updatedImage
+                                        }
+                                    },
+                                    onImageForBadgeUpdate = { updatedImage ->
+                                        if (imageForBadge?.id == updatedImage.id) {
+                                            imageForBadge = updatedImage
+                                        }
                                     }
-                                    if (imageToReplace?.id == fromImage.id) {
-                                        imageToReplace = newFromImage
-                                    } else if (imageToReplace?.id == toImage.id) {
-                                        imageToReplace = newToImage
-                                    }
-                                    if (imageForBadge?.id == fromImage.id) {
-                                        imageForBadge = newFromImage
-                                    } else if (imageForBadge?.id == toImage.id) {
-                                        imageForBadge = newToImage
-                                    }
-
-                                    AppLogger.i("交换图片位置: ${fromImage.tierLabel} <-> ${toImage.tierLabel}")
-                                }
+                                )
                                 // 交换后取消选中状态
                                 selectedImageForDrag = null
                             }
@@ -2138,68 +2079,26 @@ fun TierListMakerApp(
                                 AppLogger.i("双击取消选中图片: ${image.tierLabel}")
                             } else {
                                 // 已选中图片，双击其他图片交换位置并取消选中
-                                val fromIndex = tierImages.indexOfFirst { it.id == selectedImageForDrag!!.id }
-                                val toIndex = tierImages.indexOfFirst { it.id == image.id }
-                                if (fromIndex != -1 && toIndex != -1 && fromIndex != toIndex) {
-                                    val fromImage = tierImages[fromIndex]
-                                    val toImage = tierImages[toIndex]
-
-                                    // 无论是否同一层级，都交换图片的uri（内容）、name（命名）、badgeUri（小图标）和originalUri（原图）
-                                    // 保持各自的id和tierLabel不变，这样图片在各自层级中的位置不变
-                                    val newFromImage = fromImage.copy(
-                                        uri = toImage.uri,
-                                        name = toImage.name,
-                                        badgeUri = toImage.badgeUri,
-                                        badgeUri2 = toImage.badgeUri2,
-                                        badgeUri3 = toImage.badgeUri3,
-                                        originalUri = toImage.originalUri,
-                                        cropPositionX = toImage.cropPositionX,
-                                        cropPositionY = toImage.cropPositionY,
-                                        cropScale = toImage.cropScale,
-                                        isCropped = toImage.isCropped,
-                                        cropRatio = toImage.cropRatio,
-                                        useCustomCrop = toImage.useCustomCrop,
-                                        customCropWidth = toImage.customCropWidth,
-                                        customCropHeight = toImage.customCropHeight
-                                    )
-                                    val newToImage = toImage.copy(
-                                        uri = fromImage.uri,
-                                        name = fromImage.name,
-                                        badgeUri = fromImage.badgeUri,
-                                        badgeUri2 = fromImage.badgeUri2,
-                                        badgeUri3 = fromImage.badgeUri3,
-                                        originalUri = fromImage.originalUri,
-                                        cropPositionX = fromImage.cropPositionX,
-                                        cropPositionY = fromImage.cropPositionY,
-                                        cropScale = fromImage.cropScale,
-                                        isCropped = fromImage.isCropped,
-                                        cropRatio = fromImage.cropRatio,
-                                        useCustomCrop = fromImage.useCustomCrop,
-                                        customCropWidth = fromImage.customCropWidth,
-                                        customCropHeight = fromImage.customCropHeight
-                                    )
-                                    tierImages[fromIndex] = newFromImage
-                                    tierImages[toIndex] = newToImage
-
-                                    // 更新相关引用，确保裁切、查看、替换等操作使用正确的图片数据
-                                    if (selectedImageForAction?.id == fromImage.id) {
-                                        selectedImageForAction = newFromImage
-                                    } else if (selectedImageForAction?.id == toImage.id) {
-                                        selectedImageForAction = newToImage
+                                ImageOperationUtils.swapImageContents(
+                                    tierImages = tierImages,
+                                    fromId = selectedImageForDrag!!.id,
+                                    toId = image.id,
+                                    onImageForActionUpdate = { updatedImage ->
+                                        if (selectedImageForAction?.id == updatedImage.id) {
+                                            selectedImageForAction = updatedImage
+                                        }
+                                    },
+                                    onImageToReplaceUpdate = { updatedImage ->
+                                        if (imageToReplace?.id == updatedImage.id) {
+                                            imageToReplace = updatedImage
+                                        }
+                                    },
+                                    onImageForBadgeUpdate = { updatedImage ->
+                                        if (imageForBadge?.id == updatedImage.id) {
+                                            imageForBadge = updatedImage
+                                        }
                                     }
-                                    if (imageToReplace?.id == fromImage.id) {
-                                        imageToReplace = newFromImage
-                                    } else if (imageToReplace?.id == toImage.id) {
-                                        imageToReplace = newToImage
-                                    }
-                                    if (imageForBadge?.id == fromImage.id) {
-                                        imageForBadge = newFromImage
-                                    } else if (imageForBadge?.id == toImage.id) {
-                                        imageForBadge = newToImage
-                                    }
-
-                                    AppLogger.i("双击交换图片位置: ${fromImage.tierLabel} <-> ${toImage.tierLabel}")
-                                }
+                                )
                                 selectedImageForDrag = null
                             }
                         },
@@ -2229,20 +2128,12 @@ fun TierListMakerApp(
                             // 防止重复打开图片选择器
                             if (!isImagePickerLaunching) {
                                 isImagePickerLaunching = true
-                                
-                                // 点击右侧区域打开图片选择器
-                                val permission = FileUtils.getReadStoragePermission()
-                                when {
-                                    ContextCompat.checkSelfPermission(
-                                        context,
-                                        permission
-                                    ) == PackageManager.PERMISSION_GRANTED -> {
-                                        onSkipDraftSave?.invoke()
-                                        imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                    }
-                                    else -> {
-                                        permissionLauncher.launch(permission)
-                                    }
+                                withStoragePermission(
+                                    context = context,
+                                    permissionLauncher = permissionLauncher,
+                                    onSkipDraftSave = onSkipDraftSave
+                                ) {
+                                    imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 }
                             }
                         },
@@ -2251,15 +2142,11 @@ fun TierListMakerApp(
                         onMoveSelectedImageToTier = {
                             // 移动选中的图片到当前层级
                             selectedImageForDrag?.let { selectedImage ->
-                                val index = tierImages.indexOfFirst { it.id == selectedImage.id }
-                                if (index != -1) {
-                                    val oldTier = tierImages[index].tierLabel
-                                    // 从原位置移除图片，并修改层级标签
-                                    val movedImage = tierImages.removeAt(index).copy(tierLabel = tier.label)
-                                    // 将图片添加到新层级的末尾（保持该层级原有图片顺序）
-                                    tierImages.add(movedImage)
-                                    AppLogger.i("移动图片: $oldTier -> ${tier.label} (添加到层级末尾)")
-                                }
+                                ImageOperationUtils.moveImageToTier(
+                                    tierImages = tierImages,
+                                    imageId = selectedImage.id,
+                                    targetTierLabel = tier.label
+                                )
                                 selectedImageForDrag = null
                             }
                         },
@@ -2281,12 +2168,13 @@ fun TierListMakerApp(
                             val index = tierImages.indexOfFirst { it.id == image.id }
                             if (index != -1) {
                                 if (targetTier != null && targetTier != image.tierLabel) {
-                                    // 跨层级移动
-                                    val oldTier = tierImages[index].tierLabel
-                                    val movedImage = tierImages.removeAt(index).copy(tierLabel = targetTier)
-                                    tierImages.add(movedImage)
-                                    AppLogger.d("跨层级移动图片: $oldTier -> $targetTier")
-                                } else if (targetTier == null) {
+                                // 跨层级移动
+                                ImageOperationUtils.moveImageToTier(
+                                    tierImages = tierImages,
+                                    imageId = image.id,
+                                    targetTierLabel = targetTier
+                                )
+                            } else if (targetTier == null) {
                                     // 检查是否拖到了待分级区域
                                     val currentRect = pendingSectionRect
                                     if (currentRect != null) {
@@ -2411,21 +2299,14 @@ fun TierListMakerApp(
                     imageToReplace = selectedImageForAction
                     showImageActionDialog = false
                     selectedImageForAction = null
-                    // 启动单选图片选择器
-                    val permission = FileUtils.getReadStoragePermission()
-                    when {
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            permission
-                        ) == PackageManager.PERMISSION_GRANTED -> {
-                            onSkipDraftSave?.invoke()
-                            replaceImagePicker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }
-                        else -> {
-                            permissionLauncher.launch(permission)
-                        }
+                    withStoragePermission(
+                        context = context,
+                        permissionLauncher = permissionLauncher,
+                        onSkipDraftSave = onSkipDraftSave
+                    ) {
+                        replaceImagePicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
                     }
                 },
                 onMove = {
@@ -2730,102 +2611,43 @@ fun TierListMakerApp(
                     selectedImageForAction = null
                 },
                 onMoveToTier = { targetTierLabel ->
-                    val index = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (index != -1) {
-                        val oldTier = tierImages[index].tierLabel
-                        tierImages[index] = tierImages[index].copy(tierLabel = targetTierLabel)
-                        AppLogger.i("移动图片: $oldTier -> $targetTierLabel")
-                    }
+                    ImageOperationUtils.moveImageToTier(
+                        tierImages = tierImages,
+                        imageId = selectedImageForAction!!.id,
+                        targetTierLabel = targetTierLabel
+                    )
                     showMoveImageDialog = false
                     selectedImageForAction = null
                 },
                 onMoveToFirst = {
-                    // 将图片移到当前层级的第一位
-                    val currentIndex = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (currentIndex != -1) {
-                        val currentTier = selectedImageForAction!!.tierLabel
-                        // 获取当前层级的所有图片
-                        val tierImagesList = tierImages.filter { it.tierLabel == currentTier }
-                        if (tierImagesList.size > 1) {
-                            // 找到当前层级第一张图片的索引
-                            val firstIndex = tierImages.indexOfFirst { it.tierLabel == currentTier }
-                            if (currentIndex != firstIndex) {
-                                // 交换位置
-                                val image = tierImages.removeAt(currentIndex)
-                                tierImages.add(firstIndex, image)
-                                AppLogger.i("移动图片到第一位: ${selectedImageForAction!!.id}")
-                            }
-                        }
-                    }
+                    ImageOperationUtils.moveImageToFirst(
+                        tierImages = tierImages,
+                        imageId = selectedImageForAction!!.id
+                    )
                     showMoveImageDialog = false
                     selectedImageForAction = null
                 },
                 onMoveToLast = {
-                    // 将图片移到当前层级的最后一位
-                    val currentIndex = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (currentIndex != -1) {
-                        val currentTier = selectedImageForAction!!.tierLabel
-                        // 获取当前层级的所有图片
-                        val tierImagesList = tierImages.filter { it.tierLabel == currentTier }
-                        if (tierImagesList.size > 1) {
-                            // 找到当前层级最后一张图片的索引
-                            val lastIndex = tierImages.indexOfLast { it.tierLabel == currentTier }
-                            if (currentIndex != lastIndex) {
-                                // 先移除,再添加到后面
-                                val image = tierImages.removeAt(currentIndex)
-                                // 重新计算最后位置(因为移除后索引变了)
-                                val newLastIndex = tierImages.indexOfLast { it.tierLabel == currentTier }
-                                tierImages.add(newLastIndex + 1, image)
-                                AppLogger.i("移动图片到最后一位: ${selectedImageForAction!!.id}")
-                            }
-                        }
-                    }
+                    ImageOperationUtils.moveImageToLast(
+                        tierImages = tierImages,
+                        imageId = selectedImageForAction!!.id
+                    )
                     showMoveImageDialog = false
                     selectedImageForAction = null
                 },
                 onMoveLeft = {
-                    // 将图片向左移动一位（与左边图片交换位置）
-                    val currentIndex = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (currentIndex != -1) {
-                        val currentTier = selectedImageForAction!!.tierLabel
-                        // 获取当前层级的所有图片索引
-                        val tierIndices = tierImages.withIndex()
-                            .filter { it.value.tierLabel == currentTier }
-                            .map { it.index }
-                        val currentPosition = tierIndices.indexOf(currentIndex)
-                        // 如果不是第一个，则与左边图片交换
-                        if (currentPosition > 0) {
-                            val leftIndex = tierIndices[currentPosition - 1]
-                            // 交换两个图片的位置
-                            val temp = tierImages[currentIndex]
-                            tierImages[currentIndex] = tierImages[leftIndex]
-                            tierImages[leftIndex] = temp
-                            AppLogger.i("移动图片向左: ${selectedImageForAction!!.id}")
-                        }
-                    }
+                    ImageOperationUtils.moveImageLeft(
+                        tierImages = tierImages,
+                        imageId = selectedImageForAction!!.id
+                    )
                     showMoveImageDialog = false
                     selectedImageForAction = null
                 },
                 onMoveRight = {
-                    // 将图片向右移动一位（与右边图片交换位置）
-                    val currentIndex = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (currentIndex != -1) {
-                        val currentTier = selectedImageForAction!!.tierLabel
-                        // 获取当前层级的所有图片索引
-                        val tierIndices = tierImages.withIndex()
-                            .filter { it.value.tierLabel == currentTier }
-                            .map { it.index }
-                        val currentPosition = tierIndices.indexOf(currentIndex)
-                        // 如果不是最后一个，则与右边图片交换
-                        if (currentPosition < tierIndices.size - 1) {
-                            val rightIndex = tierIndices[currentPosition + 1]
-                            // 交换两个图片的位置
-                            val temp = tierImages[currentIndex]
-                            tierImages[currentIndex] = tierImages[rightIndex]
-                            tierImages[rightIndex] = temp
-                            AppLogger.i("移动图片向右: ${selectedImageForAction!!.id}")
-                        }
-                    }
+                    ImageOperationUtils.moveImageRight(
+                        tierImages = tierImages,
+                        imageId = selectedImageForAction!!.id
+                    )
                     showMoveImageDialog = false
                     selectedImageForAction = null
                 }
