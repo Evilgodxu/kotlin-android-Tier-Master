@@ -1,9 +1,0 @@
-*.keystore
-local.properties
-build/
-.*/
-.gradle/
-.idea/
-*.iml
-.gitignore
-开发规范
