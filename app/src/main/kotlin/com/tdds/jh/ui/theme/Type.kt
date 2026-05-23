@@ -8,12 +8,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.tdds.jh.R
 
+/**
+ * 自定义字体族
+ * 使用应用内置的自定义字体文件
+ */
 val CustomFontFamily = FontFamily(
     Font(R.font.custom_font, FontWeight.Normal),
     Font(R.font.custom_font, FontWeight.Medium),
     Font(R.font.custom_font, FontWeight.Bold)
 )
 
+/**
+ * Material 3 字体排版配置（使用自定义字体）
+ */
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = CustomFontFamily,
@@ -122,7 +129,10 @@ val Typography = Typography(
     )
 )
 
-// 系统默认字体Typography（禁用自定义字体时使用）
+/**
+ * 系统默认字体排版配置
+ * 当用户禁用自定义字体时使用，减少应用包体积加载
+ */
 val SystemTypography = Typography(
     displayLarge = TextStyle(
         fontWeight = FontWeight.Normal,

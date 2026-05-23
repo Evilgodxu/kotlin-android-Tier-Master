@@ -85,7 +85,8 @@ fun getExtendedColors(isDarkTheme: Boolean): ExtendedColors {
     }
 }
 
-// 深色颜色方案 - 使用棕色系配色,与浅色模式保持一致风格
+// ==================== 深色主题配色 ====================
+// 使用棕色系配色，与浅色模式保持一致的视觉风格
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFD0BCFF),  // 柔和的紫色作为主色
     onPrimary = Color(0xFF381E72),
@@ -117,7 +118,8 @@ private val DarkColorScheme = darkColorScheme(
     surfaceTint = Color(0xFFD0BCFF)
 )
 
-// 浅色颜色方案 - 米黄色配色,类似纸张颜色更护眼
+// ==================== 浅色主题配色 ====================
+// 米黄色配色，模拟纸张颜色更护眼，适合长时间编辑
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF6B5B4F),
     onPrimary = Color(0xFFFFFFFF),
@@ -166,8 +168,8 @@ fun MyApplicationTheme(
     }
 
     val extendedColors = getExtendedColors(darkTheme)
-    
-    // 根据disableCustomFont选择使用系统字体还是自定义字体
+
+    // 根据用户设置选择字体配置，禁用自定义字体可减少内存占用
     val typography = if (disableCustomFont) SystemTypography else Typography
 
     CompositionLocalProvider(LocalExtendedColors provides extendedColors) {
