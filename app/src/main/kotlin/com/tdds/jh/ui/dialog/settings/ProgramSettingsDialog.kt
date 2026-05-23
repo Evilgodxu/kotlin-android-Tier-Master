@@ -307,7 +307,7 @@ fun LanguageSelectionDialog(
 ) {
     // 语言列表 - 使用各自语言的本地名称,不随系统语言变化
     val languages = listOf(
-        "zh" to "中文",
+        "zh" to "简体中文",
         "en" to "English",
         "ja" to "日本語",
         "ko" to "한국어",

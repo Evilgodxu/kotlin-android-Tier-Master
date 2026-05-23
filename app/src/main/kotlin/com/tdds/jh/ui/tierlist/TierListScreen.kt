@@ -301,8 +301,7 @@ fun TierListMakerApp(
             TierItem("顶级", Color(0xFFFFB347)),
             TierItem("人上人", Color(0xFFFFFACD)),
             TierItem("NPC", Color(0xFFB8E6B8)),
-            TierItem("拉完了", Color(0xFF87CEEB)),
-            TierItem("路边一条", Color(0xFFDDA0DD))
+            TierItem("拉完了", Color(0xFF87CEEB))
         )
     } else {
         // 其他语言使用标准模板
@@ -311,8 +310,7 @@ fun TierListMakerApp(
             TierItem("A", Color(0xFFFFB347)),
             TierItem("B", Color(0xFFFFFACD)),
             TierItem("C", Color(0xFFB8E6B8)),
-            TierItem("D", Color(0xFF87CEEB)),
-            TierItem("E", Color(0xFFDDA0DD))
+            TierItem("D", Color(0xFF87CEEB))
         )
     }
 
