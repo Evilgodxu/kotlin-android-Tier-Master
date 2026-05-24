@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -153,7 +153,7 @@ fun PendingImagesSection(
                 LazyRow(
                     modifier = Modifier.height(pendingSectionHeight)
                 ) {
-                    items(images, key = { it.toString() }) { uri ->
+                    itemsIndexed(images, key = { index, uri -> "${index}_${uri}" }) { index, uri ->
                         DraggablePendingImageItem(
                             uri = uri,
                             isDragging = isDragging && draggedUri == uri,

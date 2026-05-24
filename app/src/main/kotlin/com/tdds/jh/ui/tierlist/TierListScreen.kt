@@ -98,6 +98,9 @@ import com.tdds.jh.ui.tierlist.components.DraggablePendingImageItem
 import com.tdds.jh.ui.tierlist.components.FloatingDragImage
 import com.tdds.jh.ui.tierlist.components.AddTierButton
 import com.tdds.jh.ui.tierlist.components.AuthorInfoSection
+import com.tdds.jh.ui.tierlist.components.TierListDialogs
+import com.tdds.jh.ui.tierlist.state.DialogState
+import com.tdds.jh.ui.tierlist.state.DialogHandlers
 import com.tdds.jh.ui.tierlist.components.PendingImagesSection
 import com.tdds.jh.ui.tierlist.model.PresetOperation
 import com.tdds.jh.ui.tierlist.utils.saveBitmapToGallery
@@ -320,16 +323,6 @@ fun TierListMakerApp(
     // 每个梯度的图片
     val tierImages = remember { mutableStateListOf<TierImage>() }
 
-    // 设置菜单状态
-    var showSettingsMenu by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
-    var showInstructionsDialog by remember { mutableStateOf(false) }
-    var showImportPackageDialog by remember { mutableStateOf(false) }
-
-    var showProgramSettingsDialog by remember { mutableStateOf(false) }
-    var showResourceManageDialog by remember { mutableStateOf(false) }
-
-
     // 程序设置状态
     val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
     var disableClickAdd by remember { mutableStateOf(prefs.getBoolean("disable_click_add", true)) }
@@ -341,37 +334,30 @@ fun TierListMakerApp(
     // 下置命名开关：启用时图片命名显示在图片下方
     var nameBelowImage by remember { mutableStateOf(prefs.getBoolean("name_below_image", false)) }
 
-    // 待添加的图片
+    // 待添加的图片（允许重复URI，通过哈希查重实现文件复用）
     var pendingImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
     
     // ZIP导入的待添加图片
     var zipPendingImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var showZipPasswordDialog by remember { mutableStateOf(false) }
     var pendingZipUri by remember { mutableStateOf<Uri?>(null) }
     
     // 图包管理状态
-    var showManagePackagesDialog by remember { mutableStateOf(false) }
-    var showPackageConfirmDialog by remember { mutableStateOf(false) }
     var selectedPackage by remember { mutableStateOf<PackageItem.Imported?>(null) }
     var selectedPackageImageCount by remember { mutableStateOf(0) }
     var isImportingPackage by remember { mutableStateOf(false) }  // 防止重复导入
     var isExportingPackage by remember { mutableStateOf(false) }  // 图包导出状态
-    var packageToExport by remember { mutableStateOf<PackageItem.Imported?>(null) }  // 待导出的图包
 
     // 标题状态
     var tierListTitle by remember { mutableStateOf(context.getString(R.string.default_title)) }
-    var showEditTitleDialog by remember { mutableStateOf(false) }
 
     // 作者信息状态
     var authorName by remember { mutableStateOf("") }
-    var showEditAuthorDialog by remember { mutableStateOf(false) }
 
     // 语言设置状态 - 从 SharedPreferences 读取（复用上面定义的 prefs）
     val savedLanguage = prefs.getString("language", "zh") ?: "zh"
     // 检查是否需要显示首次启动的语言选择对话框
     val shouldShowLanguageOnFirstLaunch = prefs.getBoolean("show_language_on_first_launch", true)
     var currentLanguage by remember { mutableStateOf(savedLanguage) }
-    var showLanguageDialog by remember { mutableStateOf(false) }
     var languageChanged by remember { mutableStateOf(false) }
 
     // 语言切换 - 使用 recreate 重启 Activity 来应用新语言
@@ -388,24 +374,8 @@ fun TierListMakerApp(
         }
     }
 
-    // 对话框状态
-    var editingTier by remember { mutableStateOf<TierItem?>(null) }
-    var showEditNameDialog by remember { mutableStateOf(false) }
-    var showColorPickerDialog by remember { mutableStateOf(false) }
-    var selectedImageForAction by remember { mutableStateOf<TierImage?>(null) }
-    var showImageActionDialog by remember { mutableStateOf(false) }
-    var imageToReplace by remember { mutableStateOf<TierImage?>(null) }
-    var showMoveImageDialog by remember { mutableStateOf(false) }
-    var showEditImageNameDialog by remember { mutableStateOf(false) }
-    var showImageViewDialog by remember { mutableStateOf(false) }
-    var showCropDialog by remember { mutableStateOf(false) }
-    var imageForBadge by remember { mutableStateOf<TierImage?>(null) }  // 要添加小图标的图片
-    var showSetBadgeDialog by remember { mutableStateOf(false) }  // 设置小图标对话框
-    var badgeSelectionTarget by remember { mutableStateOf(0) }  // 0=无, 1=小图标1, 2=小图标2
-    var badgeDialogRefreshKey by remember { mutableStateOf(0) }  // 用于强制刷新对话框
-    var isBadgePickerLaunching by remember { mutableStateOf(false) }  // 防止重复打开图片选择器
-    var isImagePickerLaunching by remember { mutableStateOf(false) }  // 防止重复打开层级图片选择器
-    var isResetting by remember { mutableStateOf(false) }  // 防止重复点击重置按钮
+    // 对话框状态（使用新的 DialogState 集中管理）
+    val dialogState = remember { DialogState() }
 
     // 拖拽选中状态
     var selectedImageForDrag by remember { mutableStateOf<TierImage?>(null) }
@@ -422,42 +392,28 @@ fun TierListMakerApp(
     var tierRowPositions by remember { mutableStateOf<Map<String, android.graphics.Rect>>(emptyMap()) }
 
     // 删除层级对话框状态
-    var showDeleteTierDialog by remember { mutableStateOf(false) }
     var tierToDelete by remember { mutableStateOf<TierItem?>(null) }
-
-    // 图片预览对话框状态
-    var showPreviewDialog by remember { mutableStateOf(false) }
-    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var previewIsDarkTheme by remember { mutableStateOf(false) }
-    var isSavingChart by remember { mutableStateOf(false) }
-    var isSharingChart by remember { mutableStateOf(false) }
 
     // 预设管理器
     val presetManager = remember { PresetManager(context) }
 
-    // 预设管理对话框状态
-    var showManagePresetsDialog by remember { mutableStateOf(false) }
-    var showPresetNameDialog by remember { mutableStateOf(false) }
-    var showPresetListDialog by remember { mutableStateOf(false) }
-    var showPresetOverwriteConfirmDialog by remember { mutableStateOf(false) }
+    // 预设管理状态
     var pendingPresetName by remember { mutableStateOf("") }
     var isExportingPreset by remember { mutableStateOf(false) }
     var isImportingPreset by remember { mutableStateOf(false) }
     var isSavingPreset by remember { mutableStateOf(false) }
     var presetOperation by remember { mutableStateOf<PresetOperation?>(null) }
 
-    // 导入预设覆盖确认对话框状态
-    var showImportOverwriteDialog by remember { mutableStateOf(false) }
+    // 导入预设覆盖确认状态
     var pendingImportResult by remember { mutableStateOf<PresetManager.ImportResult?>(null) }
 
-    // 草稿恢复对话框状态
-    var showDraftRestoreDialog by remember { mutableStateOf(false) }
+    // 草稿恢复状态
     // 只存储草稿配置数据，不解压图片，等待用户确认后再解压
     var draftConfigData by remember { mutableStateOf<PresetData?>(null) }
-    // 草稿加载中对话框状态
-    var showDraftLoadingDialog by remember { mutableStateOf(false) }
     // 是否跳过草稿恢复（用于外部导入预设时）
     var skipDraftRestore by remember { mutableStateOf(false) }
+
+
 
     // 检查是否是从外部打开 .tdds 或 .zip 文件
     LaunchedEffect(Unit) {
@@ -540,7 +496,7 @@ fun TierListMakerApp(
                                 }
                                 PresetManager.ImportStatus.NEEDS_OVERWRITE -> {
                                     pendingImportResult = importResult
-                                    showImportOverwriteDialog = true
+                                    dialogState.showImportOverwriteDialog = true
                                     AppLogger.i("外部打开 .tdds 文件需要覆盖确认")
                                 }
                             }
@@ -683,7 +639,7 @@ fun TierListMakerApp(
                                 }
                                 PresetManager.ImportStatus.NEEDS_OVERWRITE -> {
                                     pendingImportResult = importResult
-                                    showImportOverwriteDialog = true
+                                    dialogState.showImportOverwriteDialog = true
                                     AppLogger.i("外部分享打开 .tdds 文件需要覆盖确认")
                                 }
                             }
@@ -770,7 +726,7 @@ fun TierListMakerApp(
                 val draftConfig = presetManager.readDraftConfig()
                 if (draftConfig != null) {
                     draftConfigData = draftConfig
-                    showDraftRestoreDialog = true
+                    dialogState.showDraftRestoreDialog = true
                     AppLogger.i("发现草稿且当前无编辑内容，显示恢复对话框（未解压）")
                 }
             } else {
@@ -936,7 +892,7 @@ fun TierListMakerApp(
                             // 需要询问是否覆盖
                             isImportingPreset = false
                             pendingImportResult = importResult
-                            showImportOverwriteDialog = true
+                            dialogState.showImportOverwriteDialog = true
                             AppLogger.i("导入预设需要覆盖确认: ${importResult.presetData.title}")
                         }
                         PresetManager.ImportStatus.ALREADY_EXISTS -> {
@@ -1081,8 +1037,8 @@ fun TierListMakerApp(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let { outputUri ->
-            packageToExport?.let { packageItem ->
-                isExportingPackage = true
+            dialogState.packageToExport?.let { packageItem ->
+                dialogState.isExportingPackage = true
                 scope.launch {
                     AppLogger.markOperation("导出图包")
                     AppLogger.logStorageUsage(context, "导出图包前")
@@ -1111,8 +1067,8 @@ fun TierListMakerApp(
                             Toast.LENGTH_LONG
                         )
                     }
-                    isExportingPackage = false
-                    packageToExport = null
+                    dialogState.isExportingPackage = false
+                    dialogState.packageToExport = null
                 }
             }
         }
@@ -1175,13 +1131,13 @@ fun TierListMakerApp(
                 AppLogger.logStorageUsage(context, "选择图片后")
 
                 // 重置防重复点击状态
-                isImagePickerLaunching = false
+                dialogState.isImagePickerLaunching = false
                 // 恢复草稿保存
                 onResumeDraftSave?.invoke()
             }
         } else {
             // 重置防重复点击状态
-            isImagePickerLaunching = false
+            dialogState.isImagePickerLaunching = false
             // 恢复草稿保存
             onResumeDraftSave?.invoke()
         }
@@ -1241,7 +1197,7 @@ fun TierListMakerApp(
                     }
                 }
 
-                // 追加到现有待分级图片中
+                // 追加到现有待分级图片中（允许重复URI，通过哈希查重实现文件复用）
                 pendingImages = pendingImages + importedUris
                 AppLogger.i("添加图片到待分级区域: ${importedUris.size} 张 (WebP转换: $convertedCount, 复用: $reusedCount)，现有 ${pendingImages.size} 张")
                 AppLogger.logStorageUsage(context, "添加图片后")
@@ -1250,13 +1206,13 @@ fun TierListMakerApp(
                 showToastWithoutIcon(context, context.getString(R.string.images_added, importedUris.size))
 
                 // 重置防重复点击状态
-                isImagePickerLaunching = false
+                dialogState.isImagePickerLaunching = false
                 // 恢复草稿保存
                 onResumeDraftSave?.invoke()
             }
         } else {
             // 重置防重复点击状态
-            isImagePickerLaunching = false
+            dialogState.isImagePickerLaunching = false
             // 恢复草稿保存
             onResumeDraftSave?.invoke()
         }
@@ -1266,8 +1222,8 @@ fun TierListMakerApp(
     val replaceImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        if (uri != null && imageToReplace != null) {
-            val index = tierImages.indexOfFirst { it.id == imageToReplace!!.id }
+        if (uri != null && dialogState.imageToReplace != null) {
+            val index = tierImages.indexOfFirst { it.id == dialogState.imageToReplace!!.id }
             if (index != -1) {
                 val oldImage = tierImages[index]
                 
@@ -1291,11 +1247,9 @@ fun TierListMakerApp(
                         
                         val newUri = Uri.fromFile(destFile)
                         
-                        // 返回原图到待分级区域
+                        // 返回原图到待分级区域（增加计数）
                         val uriToReturn = oldImage.originalUri ?: oldImage.uri
-                        if (uriToReturn !in pendingImages) {
-                            pendingImages = pendingImages + uriToReturn
-                        }
+                        pendingImages = pendingImages + uriToReturn
                         
                         // 替换为新图片，使用工作目录中的文件URI
                         tierImages[index] = tierImages[index].copy(
@@ -1316,9 +1270,7 @@ fun TierListMakerApp(
                         AppLogger.e("替换图片失败: ${e.message}", e)
                         // 如果复制失败，回退到原来的方式（直接使用URI）
                         val uriToReturn = oldImage.originalUri ?: oldImage.uri
-                        if (uriToReturn !in pendingImages) {
-                            pendingImages = pendingImages + uriToReturn
-                        }
+                        pendingImages = pendingImages + uriToReturn
                         tierImages[index] = tierImages[index].copy(
                             uri = uri,
                             originalUri = uri,
@@ -1334,7 +1286,7 @@ fun TierListMakerApp(
                     }
                 }
             }
-            imageToReplace = null
+            dialogState.imageToReplace = null
         }
     }
 
@@ -1343,7 +1295,7 @@ fun TierListMakerApp(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            if (badgeSelectionTarget == 0) {
+            if (dialogState.badgeSelectionTarget == 0) {
                 // 添加小图标到工作目录（不设置到具体图片）- 单选情况
                 scope.launch {
                     try {
@@ -1360,19 +1312,19 @@ fun TierListMakerApp(
                         }
                         AppLogger.i("添加小图标到工作目录: ${destFile.absolutePath}")
                         // 刷新对话框以显示新添加的小图标
-                        badgeDialogRefreshKey++
+                        dialogState.badgeDialogRefreshKey++
                         showToastWithoutIcon(context, context.getString(R.string.badge_added))
                     } catch (e: Exception) {
                         AppLogger.e("添加小图标失败: ${e.message}")
                         showToastWithoutIcon(context, context.getString(R.string.badge_add_failed, e.message), Toast.LENGTH_LONG)
                     } finally {
                         // 重置防重复点击状态
-                        isBadgePickerLaunching = false
+                        dialogState.isBadgePickerLaunching = false
                         // 恢复草稿保存
                         onResumeDraftSave?.invoke()
                     }
                 }
-            } else if (imageForBadge != null) {
+            } else if (dialogState.imageForBadge != null) {
                 // 为图片添加小图标，同时保存到工作目录
                 scope.launch {
                     try {
@@ -1390,53 +1342,53 @@ fun TierListMakerApp(
                         }
                         // 使用工作目录中的文件URI
                         val workUri = Uri.fromFile(destFile)
-                        val index = tierImages.indexOfFirst { it.id == imageForBadge!!.id }
+                        val index = tierImages.indexOfFirst { it.id == dialogState.imageForBadge!!.id }
                         if (index != -1) {
-                            when (badgeSelectionTarget) {
+                            when (dialogState.badgeSelectionTarget) {
                                 1 -> tierImages[index] = tierImages[index].copy(badgeUri = workUri)
                                 2 -> tierImages[index] = tierImages[index].copy(badgeUri2 = workUri)
                                 3 -> tierImages[index] = tierImages[index].copy(badgeUri3 = workUri)
                             }
-                            AppLogger.i("为图片添加小图标${badgeSelectionTarget}: ${imageForBadge!!.id}, 已保存到工作目录")
+                            AppLogger.i("为图片添加小图标${dialogState.badgeSelectionTarget}: ${dialogState.imageForBadge!!.id}, 已保存到工作目录")
                             // 更新 imageForBadge 为最新的对象引用
-                            imageForBadge = tierImages[index]
+                            dialogState.imageForBadge = tierImages[index]
                         }
                         // 刷新小图标预览区域
-                        badgeDialogRefreshKey++
+                        dialogState.badgeDialogRefreshKey++
                     } catch (e: Exception) {
                         AppLogger.e("添加小图标到工作目录失败: ${e.message}")
                         // 如果保存失败，仍然使用原始URI
-                        val index = tierImages.indexOfFirst { it.id == imageForBadge!!.id }
+                        val index = tierImages.indexOfFirst { it.id == dialogState.imageForBadge!!.id }
                         if (index != -1) {
-                            when (badgeSelectionTarget) {
+                            when (dialogState.badgeSelectionTarget) {
                                 1 -> tierImages[index] = tierImages[index].copy(badgeUri = uri)
                                 2 -> tierImages[index] = tierImages[index].copy(badgeUri2 = uri)
                                 3 -> tierImages[index] = tierImages[index].copy(badgeUri3 = uri)
                             }
-                            imageForBadge = tierImages[index]
+                            dialogState.imageForBadge = tierImages[index]
                         }
                         // 刷新小图标预览区域
-                        badgeDialogRefreshKey++
+                        dialogState.badgeDialogRefreshKey++
                     } finally {
                         // 重置选择目标（在协程完成后执行）
-                        badgeSelectionTarget = 0
+                        dialogState.badgeSelectionTarget = 0
                         // 重置防重复点击状态
-                        isBadgePickerLaunching = false
+                        dialogState.isBadgePickerLaunching = false
                         // 恢复草稿保存
                         onResumeDraftSave?.invoke()
                     }
                 }
             } else {
                 // imageForBadge 为 null，重置状态
-                badgeSelectionTarget = 0
-                isBadgePickerLaunching = false
+                dialogState.badgeSelectionTarget = 0
+                dialogState.isBadgePickerLaunching = false
                 // 恢复草稿保存
                 onResumeDraftSave?.invoke()
             }
         } else {
             // uri 为 null，重置状态
-            badgeSelectionTarget = 0
-            isBadgePickerLaunching = false
+            dialogState.badgeSelectionTarget = 0
+            dialogState.isBadgePickerLaunching = false
             // 恢复草稿保存
             onResumeDraftSave?.invoke()
         }
@@ -1470,7 +1422,7 @@ fun TierListMakerApp(
                     }
                 }
                 // 刷新对话框以显示新添加的小图标
-                badgeDialogRefreshKey++
+                dialogState.badgeDialogRefreshKey++
                 // 使用统计日志格式
                 AppLogger.i("批量添加小图标完成: 成功${successCount}张${if (failCount > 0) ", 失败${failCount}张" else ""}")
                 if (successCount > 0) {
@@ -1482,7 +1434,7 @@ fun TierListMakerApp(
             }
         }
         // 重置防重复点击状态
-        isBadgePickerLaunching = false
+        dialogState.isBadgePickerLaunching = false
         // 恢复草稿保存
         onResumeDraftSave?.invoke()
     }
@@ -1493,13 +1445,13 @@ fun TierListMakerApp(
     ) { isGranted ->
         // 权限申请完成后，如果是首次启动则显示语言选择对话框
         if (shouldShowLanguageOnFirstLaunch) {
-            showLanguageDialog = true
+            dialogState.showLanguageDialog = true
             // 标记已显示过语言选择对话框
             prefs.edit().putBoolean("show_language_on_first_launch", false).apply()
         }
         // 重置所有防重复点击状态（权限申请完成后，无论成功与否）
-        isBadgePickerLaunching = false
-        isImagePickerLaunching = false
+        dialogState.isBadgePickerLaunching = false
+        dialogState.isImagePickerLaunching = false
         AppLogger.d("权限申请完成，重置防重复点击状态: granted=$isGranted")
     }
 
@@ -1510,86 +1462,98 @@ fun TierListMakerApp(
         } else {
             // 已有权限，如果是首次启动则显示语言选择对话框
             if (shouldShowLanguageOnFirstLaunch) {
-                showLanguageDialog = true
+                dialogState.showLanguageDialog = true
                 // 标记已显示过语言选择对话框
                 prefs.edit().putBoolean("show_language_on_first_launch", false).apply()
             }
         }
     }
 
-    // 辅助函数：启动小图标选择器
-    fun launchBadgePicker(target: Int) {
-        if (!isBadgePickerLaunching) {
-            isBadgePickerLaunching = true
-            badgeSelectionTarget = target
-            AppLogger.i("选择小图标$target: ${imageForBadge!!.id}")
-            withStoragePermission(
-                context = context,
-                permissionLauncher = permissionLauncher,
-                onSkipDraftSave = onSkipDraftSave
-            ) {
-                badgeImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }
-        }
-    }
-
-    // 辅助函数：删除小图标
-    fun deleteBadge(target: Int) {
-        val index = tierImages.indexOfFirst { it.id == imageForBadge!!.id }
-        if (index != -1) {
-            tierImages[index] = when (target) {
-                1 -> tierImages[index].copy(badgeUri = null)
-                2 -> tierImages[index].copy(badgeUri2 = null)
-                3 -> tierImages[index].copy(badgeUri3 = null)
-                else -> tierImages[index]
-            }
-            AppLogger.d("删除小图标$target - 图片ID: ${imageForBadge!!.id}")
-            imageForBadge = tierImages[index]
-        }
-    }
-
-    // 辅助函数：启动小图标选择器用于添加新小图标到工作目录（支持多选，最多20张）
-    fun launchBadgePickerForAdding() {
-        if (!isBadgePickerLaunching) {
-            isBadgePickerLaunching = true
-            badgeSelectionTarget = 0 // 0 表示添加到工作目录，不设置到具体槽位
-            AppLogger.i("添加新小图标到工作目录（多选模式，最多20张）")
-            withStoragePermission(
-                context = context,
-                permissionLauncher = permissionLauncher,
-                onSkipDraftSave = onSkipDraftSave
-            ) {
-                badgeImagePickerMultiple.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }
-        }
-    }
-
-    // 辅助函数：删除小图标文件
-    fun deleteBadgeFile(badgeUri: Uri, presetManager: PresetManager): Boolean {
-        return try {
-            AppLogger.d("尝试删除小图标 - URI: $badgeUri, Path: ${badgeUri.path}")
-            val path = badgeUri.path ?: run {
-                AppLogger.w("小图标URI path为空")
-                return false
-            }
-            val file = File(path)
-            AppLogger.d("小图标文件对象 - 路径: ${file.absolutePath}, 是否存在: ${file.exists()}")
-            if (file.exists()) {
-                val deleted = file.delete()
-                if (deleted) {
-                    AppLogger.i("删除小图标文件成功: ${file.name}")
-                } else {
-                    AppLogger.w("删除小图标文件失败: ${file.name} (文件可能正在被使用或权限不足)")
+    // 对话框事件处理器（必须在 permissionLauncher 和 imagePicker 等定义之后初始化）
+    val dialogHandlers = remember {
+        DialogHandlers(
+            context = context,
+            dialogState = dialogState,
+            scope = scope,
+            prefs = prefs,
+            presetManager = presetManager,
+            tierImages = tierImages,
+            onTierImagesChange = { /* tierImages 是 mutableStateList，变更会自动触发重组 */ },
+            onPendingImagesChange = { pendingImages = it },
+            onSkipDraftSave = onSkipDraftSave,
+            onResumeDraftSave = onResumeDraftSave,
+            imagePicker = imagePicker,
+            replaceImagePicker = replaceImagePicker,
+            launchBadgePicker = { target ->
+                if (!dialogState.isBadgePickerLaunching) {
+                    dialogState.isBadgePickerLaunching = true
+                    dialogState.badgeSelectionTarget = target
+                    dialogState.imageForBadge?.let { image ->
+                        AppLogger.i("选择小图标$target: ${image.id}")
+                    }
+                    withStoragePermission(
+                        context = context,
+                        permissionLauncher = permissionLauncher,
+                        onSkipDraftSave = onSkipDraftSave
+                    ) {
+                        badgeImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
                 }
-                deleted
-            } else {
-                AppLogger.w("小图标文件不存在: ${file.absolutePath}")
-                false
+            },
+            launchBadgePickerForAdding = {
+                if (!dialogState.isBadgePickerLaunching) {
+                    dialogState.isBadgePickerLaunching = true
+                    dialogState.badgeSelectionTarget = 0 // 0 表示添加到工作目录，不设置到具体槽位
+                    AppLogger.i("添加新小图标到工作目录（多选模式，最多20张）")
+                    withStoragePermission(
+                        context = context,
+                        permissionLauncher = permissionLauncher,
+                        onSkipDraftSave = onSkipDraftSave
+                    ) {
+                        badgeImagePickerMultiple.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                }
+            },
+            deleteBadge = { target ->
+                val index = tierImages.indexOfFirst { it.id == dialogState.imageForBadge?.id }
+                if (index != -1) {
+                    tierImages[index] = when (target) {
+                        1 -> tierImages[index].copy(badgeUri = null)
+                        2 -> tierImages[index].copy(badgeUri2 = null)
+                        3 -> tierImages[index].copy(badgeUri3 = null)
+                        else -> tierImages[index]
+                    }
+                    AppLogger.d("删除小图标$target - 图片ID: ${dialogState.imageForBadge?.id}")
+                    dialogState.imageForBadge = tierImages[index]
+                }
+            },
+            deleteBadgeFile = { badgeUri, pm ->
+                try {
+                    AppLogger.d("尝试删除小图标 - URI: $badgeUri, Path: ${badgeUri.path}")
+                    val path = badgeUri.path ?: run {
+                        AppLogger.w("小图标URI path为空")
+                        return@DialogHandlers false
+                    }
+                    val file = File(path)
+                    AppLogger.d("小图标文件对象 - 路径: ${file.absolutePath}, 是否存在: ${file.exists()}")
+                    if (file.exists()) {
+                        val deleted = file.delete()
+                        if (deleted) {
+                            AppLogger.i("删除小图标文件成功: ${file.name}")
+                        } else {
+                            AppLogger.w("删除小图标文件失败: ${file.name} (文件可能正在被使用或权限不足)")
+                        }
+                        deleted
+                    } else {
+                        AppLogger.w("小图标文件不存在: ${file.absolutePath}")
+                        false
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e("删除小图标文件异常: ${e.message}", e)
+                    false
+                }
             }
-        } catch (e: Exception) {
-            AppLogger.e("删除小图标文件异常: ${e.message}", e)
-            false
-        }
+        )
     }
 
     // 双击返回退出应用
@@ -1607,21 +1571,21 @@ fun TierListMakerApp(
     val extendedColors = LocalExtendedColors.current
 
     // 草稿恢复对话框
-    if (showDraftRestoreDialog && draftConfigData != null) {
+    if (dialogState.showDraftRestoreDialog && draftConfigData != null) {
         DraftRestoreDialog(
             title = draftConfigData!!.title,
             author = draftConfigData!!.author,
             onDismiss = {
                 // 取消恢复，清理草稿
                 presetManager.cleanupDraft()
-                showDraftRestoreDialog = false
+                dialogState.showDraftRestoreDialog = false
                 draftConfigData = null
                 AppLogger.i("用户取消恢复草稿")
             },
             onRestore = {
                 // 用户确认恢复，先关闭恢复对话框，显示加载对话框
-                showDraftRestoreDialog = false
-                showDraftLoadingDialog = true
+                dialogState.showDraftRestoreDialog = false
+                dialogState.showDraftLoadingDialog = true
                 AppLogger.i("用户确认恢复草稿，开始加载...")
 
                 scope.launch {
@@ -1678,7 +1642,7 @@ fun TierListMakerApp(
                                 .apply()
                             // 清空层级位置信息,确保使用草稿中的层级标签
                             tierRowPositions = emptyMap()
-                            showDraftLoadingDialog = false
+                            dialogState.showDraftLoadingDialog = false
                             draftConfigData = null
 
                             showToastWithoutIcon(context, context.getString(R.string.draft_restored))
@@ -1688,7 +1652,7 @@ fun TierListMakerApp(
                         }
                     } catch (e: Exception) {
                         AppLogger.e("恢复草稿失败", e)
-                        showDraftLoadingDialog = false
+                        dialogState.showDraftLoadingDialog = false
                         draftConfigData = null
                         showToastWithoutIcon(context, context.getString(R.string.draft_restore_failed))
                     }
@@ -1698,7 +1662,7 @@ fun TierListMakerApp(
     }
 
     // 草稿加载中对话框
-    if (showDraftLoadingDialog) {
+    if (dialogState.showDraftLoadingDialog) {
         LoadingDialog(message = stringResource(R.string.loading_resources))
     }
 
@@ -1739,7 +1703,7 @@ fun TierListMakerApp(
                 // 居中的标题
                 Text(
                     text = "-$tierListTitle-",
-                    modifier = Modifier.clickable { showEditTitleDialog = true },
+                    modifier = Modifier.clickable { dialogState.showEditTitleDialog = true },
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleLarge
                 )
@@ -1750,7 +1714,7 @@ fun TierListMakerApp(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // 资源管理按钮
-                    IconButton(onClick = { showResourceManageDialog = true }) {
+                    IconButton(onClick = { dialogState.showResourceManageDialog = true }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_resource_manage),
                             contentDescription = stringResource(R.string.resource_management),
@@ -1759,7 +1723,7 @@ fun TierListMakerApp(
                         )
                     }
                     // 功能菜单按钮
-                    IconButton(onClick = { showSettingsMenu = true }) {
+                    IconButton(onClick = { dialogState.showSettingsMenu = true }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_menu_light),
                             contentDescription = stringResource(R.string.settings),
@@ -1790,10 +1754,10 @@ fun TierListMakerApp(
                 OutlinedButton(
                     onClick = {
                         scope.launch {
-                            previewIsDarkTheme = isDarkTheme
-                            val bitmap = generateTierListBitmap(context, tiers, tierImages, tierListTitle, authorName, previewIsDarkTheme, externalBadgeEnabled, disableCustomFont, nameBelowImage)
-                            previewBitmap = bitmap
-                            showPreviewDialog = true
+                            dialogState.previewIsDarkTheme = isDarkTheme
+                            val bitmap = generateTierListBitmap(context, tiers, tierImages, tierListTitle, authorName, dialogState.previewIsDarkTheme, externalBadgeEnabled, disableCustomFont, nameBelowImage)
+                            dialogState.previewBitmap = bitmap
+                            dialogState.showPreviewDialog = true
                         }
                     },
                     modifier = Modifier
@@ -1819,7 +1783,7 @@ fun TierListMakerApp(
                 OutlinedButton(
                     onClick = {
                         // 防止重复点击
-                        if (isResetting) return@OutlinedButton
+                        if (dialogState.isResetting) return@OutlinedButton
                         
                         // 检查是否已经是默认状态（默认模板且无图片）
                         val isDefaultState = tierImages.isEmpty() && 
@@ -1833,10 +1797,10 @@ fun TierListMakerApp(
                             return@OutlinedButton
                         }
                         
-                        isResetting = true
+                        dialogState.isResetting = true
                         
-                        // 将层级中的图片返回到待分级区域（不返回小图标，返回原图）
-                        val imagesToReturn = tierImages.map { it.originalUri ?: it.uri }.filter { it !in pendingImages }
+                        // 将层级中的图片返回到待分级区域（原样返回所有图片，包括重复的）
+                        val imagesToReturn = tierImages.map { it.originalUri ?: it.uri }
                         
                         // 重置层级为默认模板
                         tiers.clear()
@@ -1852,7 +1816,7 @@ fun TierListMakerApp(
                             .remove("use_custom_crop_size")
                             .apply()
 
-                        // 将层级图片添加到待分级区域（保留原有图片）
+                        // 将层级图片添加到待分级区域（原样返回所有图片，包括重复的）
                         if (imagesToReturn.isNotEmpty()) {
                             pendingImages = pendingImages + imagesToReturn
                             AppLogger.i("重置时将 ${imagesToReturn.size} 张图片返回到待分级区域")
@@ -1866,7 +1830,7 @@ fun TierListMakerApp(
                         // 延迟重置状态，防止快速连续点击
                         scope.launch {
                             delay(500)
-                            isResetting = false
+                            dialogState.isResetting = false
                         }
                     },
                     modifier = Modifier
@@ -1931,8 +1895,8 @@ fun TierListMakerApp(
                     },
                 onAdd = {
                     // 打开图片选择器添加图片到待分级区域
-                    if (!isImagePickerLaunching) {
-                        isImagePickerLaunching = true
+                    if (!dialogState.isImagePickerLaunching) {
+                        dialogState.isImagePickerLaunching = true
                         withStoragePermission(
                             context = context,
                             permissionLauncher = permissionLauncher,
@@ -1952,12 +1916,19 @@ fun TierListMakerApp(
                 },
                 onDropOnTier = { uri, tierLabel ->
                     tierImages.add(TierImage(UUID.randomUUID().toString(), tierLabel, uri))
-                    pendingImages = pendingImages.filter { it != uri }
+                    // 只移除待分级区域中的一个匹配URI（支持同一URI的多张图片）
+                    val index = pendingImages.indexOfFirst { it == uri }
+                    if (index != -1) {
+                        pendingImages = pendingImages.toMutableList().apply { removeAt(index) }
+                    }
                     AppLogger.i("拖动添加图片到层级: $tierLabel")
                 },
                 onDeleteImage = { uri ->
-                    // 从待选区删除图片
-                    pendingImages = pendingImages.filter { it != uri }
+                    // 从待选区删除图片（只移除一个匹配项，支持同一URI的多张图片）
+                    val index = pendingImages.indexOfFirst { it == uri }
+                    if (index != -1) {
+                        pendingImages = pendingImages.toMutableList().apply { removeAt(index) }
+                    }
                     // 清理资源文件
                     try {
                         val fileName = uri.lastPathSegment
@@ -2005,22 +1976,26 @@ fun TierListMakerApp(
                             images = tierImageList,
                         pendingImages = if (isDraggingPendingImage) emptyList() else pendingImages,
                         onTierClick = {
-                            editingTier = tier
-                            showEditNameDialog = true
+                            dialogState.editingTier = tier
+                            dialogState.showEditNameDialog = true
                             AppLogger.i("点击层级编辑名称: ${tier.label}")
                         },
                         onTierLongClick = {
                             // 长按功能未实现，仅作为占位回调
                         },
                         onTierDoubleClick = {
-                            editingTier = tier
-                            showColorPickerDialog = true
+                            dialogState.editingTier = tier
+                            dialogState.showColorPickerDialog = true
                             AppLogger.i("双击层级编辑颜色: ${tier.label}")
                         },
                         onAddImage = { uri ->
                             // 正常点击模式
                             tierImages.add(TierImage(UUID.randomUUID().toString(), tier.label, uri))
-                            pendingImages = pendingImages.filter { it != uri }
+                            // 只移除待分级区域中的一个匹配URI（支持同一URI的多张图片）
+                            val index = pendingImages.indexOfFirst { it == uri }
+                            if (index != -1) {
+                                pendingImages = pendingImages.toMutableList().apply { removeAt(index) }
+                            }
                             AppLogger.i("添加图片到层级: ${tier.label}")
                         },
                         onPositionUpdate = { tierLabel, rect ->
@@ -2030,8 +2005,8 @@ fun TierListMakerApp(
                         onImageClick = { image, imgIndex ->
                             if (selectedImageForDrag == null) {
                                 // 没有选中图片，单击打开操作对话框
-                                selectedImageForAction = image
-                                showImageActionDialog = true
+                                dialogState.selectedImageForAction = image
+                                dialogState.showImageActionDialog = true
                                 AppLogger.i("单击图片打开操作对话框: ${image.tierLabel}")
                             } else if (selectedImageForDrag!!.id == image.id) {
                                 // 单击已选中的图片，取消选中
@@ -2044,18 +2019,18 @@ fun TierListMakerApp(
                                     fromId = selectedImageForDrag!!.id,
                                     toId = image.id,
                                     onImageForActionUpdate = { updatedImage ->
-                                        if (selectedImageForAction?.id == updatedImage.id) {
-                                            selectedImageForAction = updatedImage
+                                        if (dialogState.selectedImageForAction?.id == updatedImage.id) {
+                                            dialogState.selectedImageForAction = updatedImage
                                         }
                                     },
                                     onImageToReplaceUpdate = { updatedImage ->
-                                        if (imageToReplace?.id == updatedImage.id) {
-                                            imageToReplace = updatedImage
+                                        if (dialogState.imageToReplace?.id == updatedImage.id) {
+                                            dialogState.imageToReplace = updatedImage
                                         }
                                     },
                                     onImageForBadgeUpdate = { updatedImage ->
-                                        if (imageForBadge?.id == updatedImage.id) {
-                                            imageForBadge = updatedImage
+                                        if (dialogState.imageForBadge?.id == updatedImage.id) {
+                                            dialogState.imageForBadge = updatedImage
                                         }
                                     }
                                 )
@@ -2082,18 +2057,18 @@ fun TierListMakerApp(
                                     fromId = selectedImageForDrag!!.id,
                                     toId = image.id,
                                     onImageForActionUpdate = { updatedImage ->
-                                        if (selectedImageForAction?.id == updatedImage.id) {
-                                            selectedImageForAction = updatedImage
+                                        if (dialogState.selectedImageForAction?.id == updatedImage.id) {
+                                            dialogState.selectedImageForAction = updatedImage
                                         }
                                     },
                                     onImageToReplaceUpdate = { updatedImage ->
-                                        if (imageToReplace?.id == updatedImage.id) {
-                                            imageToReplace = updatedImage
+                                        if (dialogState.imageToReplace?.id == updatedImage.id) {
+                                            dialogState.imageToReplace = updatedImage
                                         }
                                     },
                                     onImageForBadgeUpdate = { updatedImage ->
-                                        if (imageForBadge?.id == updatedImage.id) {
-                                            imageForBadge = updatedImage
+                                        if (dialogState.imageForBadge?.id == updatedImage.id) {
+                                            dialogState.imageForBadge = updatedImage
                                         }
                                     }
                                 )
@@ -2104,14 +2079,13 @@ fun TierListMakerApp(
                             // 使用该层级的标签查找当前索引（避免交换图片后索引过期）
                             val currentIndex = tiers.indexOfFirst { it.label == tier.label }
                             if (currentIndex != -1) {
-                                // 将该层级的所有图片返回到待放置区（避免重复，返回原图）
+                                // 将该层级的所有图片返回到待放置区（原样返回所有图片，包括重复的）
                                 val imagesToReturn = tierImages.filter { it.tierLabel == tier.label }
-                                val newPendingImages = imagesToReturn.map { it.originalUri ?: it.uri }
-                                    .filter { it !in pendingImages }
-                                if (newPendingImages.isNotEmpty()) {
-                                    pendingImages = pendingImages + newPendingImages
+                                val returnUris = imagesToReturn.map { it.originalUri ?: it.uri }
+                                if (returnUris.isNotEmpty()) {
+                                    pendingImages = pendingImages + returnUris
                                 }
-                                val returnedCount = newPendingImages.size
+                                val returnedCount = returnUris.size
                                 val deletedCount = imagesToReturn.size
                                 tiers.removeAt(currentIndex)
                                 tierImages.removeAll { it.tierLabel == tier.label }
@@ -2124,8 +2098,8 @@ fun TierListMakerApp(
                         },
                         onPickImage = {
                             // 防止重复打开图片选择器
-                            if (!isImagePickerLaunching) {
-                                isImagePickerLaunching = true
+                            if (!dialogState.isImagePickerLaunching) {
+                                dialogState.isImagePickerLaunching = true
                                 withStoragePermission(
                                     context = context,
                                     permissionLauncher = permissionLauncher,
@@ -2186,10 +2160,9 @@ fun TierListMakerApp(
                                             // 注意：不删除小图标文件，因为小图标是全局资源，可能被其他图片使用
                                             // 只从当前图片移除小图标引用，让图片恢复为无小图标状态
 
-                                            if (uriToReturn !in pendingImages) {
-                                                pendingImages = pendingImages + uriToReturn
-                                                AppLogger.i("将图片从层级移回待分级区域: ${removedImage.tierLabel} -> pending, URI: $uriToReturn")
-                                            }
+                                            // 返回图片到待分级区域
+                                            pendingImages = pendingImages + uriToReturn
+                                            AppLogger.i("将图片从层级移回待分级区域: ${removedImage.tierLabel} -> pending, URI: $uriToReturn")
                                         }
                                     }
                                 }
@@ -2218,7 +2191,7 @@ fun TierListMakerApp(
                 item {
                     AuthorInfoSection(
                         authorName = authorName,
-                        onClick = { showEditAuthorDialog = true }
+                        onClick = { dialogState.showEditAuthorDialog = true }
                     )
                 }
             }
@@ -2235,1199 +2208,57 @@ fun TierListMakerApp(
             )
         }
         
-        // 编辑名称对话框
-        if (showEditNameDialog && editingTier != null) {
-            EditTierNameDialog(
-                currentName = editingTier!!.label,
-                existingNames = tiers.map { it.label }.filter { it != editingTier!!.label },
-                onDismiss = { showEditNameDialog = false },
-                onConfirm = { newName ->
-                    val index = tiers.indexOfFirst { it.label == editingTier!!.label }
-                    if (index != -1) {
-                        val oldLabel = tiers[index].label
-                        tiers[index] = tiers[index].copy(label = newName)
-                        // 更新图片的层级标签
-                        tierImages.forEachIndexed { i, img ->
-                            if (img.tierLabel == oldLabel) {
-                                tierImages[i] = img.copy(tierLabel = newName)
-                            }
-                        }
-                        // 更新 tierRowPositions 中的 key
-                        tierRowPositions[oldLabel]?.let { rect ->
-                            tierRowPositions = tierRowPositions - oldLabel + (newName to rect)
-                        }
-                        AppLogger.i("修改层级名称: $oldLabel -> $newName")
-                    }
-                    showEditNameDialog = false
-                }
-            )
-        }
-
-        // 颜色选择器对话框
-        if (showColorPickerDialog && editingTier != null) {
-            // 从 tiers 列表中获取最新的颜色值
-            val currentTierColor = tiers.find { it.label == editingTier!!.label }?.color ?: editingTier!!.color
-            ColorPickerDialog(
-                currentColor = currentTierColor,
-                onDismiss = { showColorPickerDialog = false },
-                onConfirm = { newColor ->
-                    val index = tiers.indexOfFirst { it.label == editingTier!!.label }
-                    if (index != -1) {
-                        tiers[index] = tiers[index].copy(color = newColor)
-                        AppLogger.i("修改层级颜色: ${editingTier!!.label}")
-                    }
-                    showColorPickerDialog = false
-                }
-            )
-        }
-
-        // 图片操作对话框
-        if (showImageActionDialog && selectedImageForAction != null) {
-            ImageActionDialog(
-                onDismiss = { showImageActionDialog = false },
-                onSetBadge = {
-                    // 打开设置小图标对话框
-                    imageForBadge = selectedImageForAction
-                    showImageActionDialog = false
-                    showSetBadgeDialog = true
-                    AppLogger.i("打开设置小图标对话框: ${selectedImageForAction?.tierLabel}")
-                },
-                onReplace = {
-                    // 重新选择图片替换
-                    imageToReplace = selectedImageForAction
-                    showImageActionDialog = false
-                    selectedImageForAction = null
-                    withStoragePermission(
-                        context = context,
-                        permissionLauncher = permissionLauncher,
-                        onSkipDraftSave = onSkipDraftSave
-                    ) {
-                        replaceImagePicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    }
-                },
-                onMove = {
-                    // 打开移动到其他层级的对话框
-                    showImageActionDialog = false
-                    showMoveImageDialog = true
-                },
-                onRename = {
-                    // 打开命名编辑对话框
-                    showImageActionDialog = false
-                    showEditImageNameDialog = true
-                },
-                onView = {
-                    // 打开图片查看对话框
-                    showImageActionDialog = false
-                    showImageViewDialog = true
-                },
-                onCrop = {
-                    // 打开图片裁剪对话框
-                    showImageActionDialog = false
-                    showCropDialog = true
-                }
-            )
-        }
-
-        // 图片查看对话框
-        if (showImageViewDialog && selectedImageForAction != null) {
-            ImageViewDialog(
-                imageUri = selectedImageForAction!!.uri,
-                onDismiss = {
-                    showImageViewDialog = false
-                    selectedImageForAction = null
-                },
-            )
-        }
-
-        // 图片裁剪对话框
-        if (showCropDialog && selectedImageForAction != null) {
-            // 获取当前图片信息，用于获取原图URI和裁剪状态
-            val currentImageIndex = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-            val currentImageForCrop = if (currentImageIndex != -1) tierImages[currentImageIndex] else null
-            
-            // 使用原图进行裁剪（如果有原图），否则使用当前图片
-            val imageUriToCrop = currentImageForCrop?.originalUri ?: selectedImageForAction!!.uri
-            
-            // 获取初始裁剪状态
-            val initialCropState = if (currentImageForCrop != null) {
-                CropState(
-                    positionX = currentImageForCrop.cropPositionX,
-                    positionY = currentImageForCrop.cropPositionY,
-                    scale = currentImageForCrop.cropScale,
-                    cropRatio = currentImageForCrop.cropRatio,
-                    useCustomCrop = currentImageForCrop.useCustomCrop,
-                    customCropWidth = currentImageForCrop.customCropWidth,
-                    customCropHeight = currentImageForCrop.customCropHeight
-                )
-            } else {
-                CropState()
-            }
-            
-            ImageCropDialog(
-                imageUri = imageUriToCrop,
-                initialCropState = initialCropState,
-                onDismiss = {
-                    showCropDialog = false
-                    selectedImageForAction = null
-                },
-                onCrop = { resultUri, cropState ->
-                    // 获取当前图片信息
-                    val index = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (index != -1) {
-                        val currentImage = tierImages[index]
-                        // 如果之前没有原图URI，则使用当前URI作为原图
-                        // 如果已经有原图URI，则保留原来的原图URI
-                        val originalImageUri = currentImage.originalUri ?: currentImage.uri
-                        
-                        // 判断是否是重置操作（cropRatio = 0f 表示重置）
-                        val isReset = cropState.cropRatio == 0f
-                        
-                        tierImages[index] = currentImage.copy(
-                            uri = if (isReset) originalImageUri else resultUri,
-                            originalUri = if (isReset) null else originalImageUri,
-                            cropPositionX = cropState.positionX,
-                            cropPositionY = cropState.positionY,
-                            cropScale = cropState.scale,
-                            isCropped = !isReset,
-                            cropRatio = cropState.cropRatio,
-                            useCustomCrop = cropState.useCustomCrop,
-                            customCropWidth = cropState.customCropWidth,
-                            customCropHeight = cropState.customCropHeight
-                        )
-                        
-                        if (isReset) {
-                            AppLogger.i("图片裁切重置: ${selectedImageForAction!!.id}")
-                        } else {
-                            AppLogger.i("图片裁剪完成: ${selectedImageForAction!!.id}, 比例: ${cropState.cropRatio}")
-                        }
-                        
-                        // 清理旧的裁剪图片文件（如果有）
-                        if (!isReset) {
-                            try {
-                                val oldUri = currentImage.uri
-                                if (oldUri != originalImageUri) {
-                                    val fileName = oldUri.lastPathSegment
-                                    if (fileName != null && fileName.startsWith("cropped_")) {
-                                        val file = File(context.filesDir, fileName)
-                                        if (file.exists() && file.delete()) {
-                                            AppLogger.i("清理旧裁剪图片: $fileName")
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                AppLogger.e("清理旧裁剪图片失败", e)
-                            }
-                        }
-                    }
-                    showCropDialog = false
-                    selectedImageForAction = null
-                },
-                presetManager = presetManager,
-                onApplyToAll = { currentCropState, sourceImageWidth, sourceImageHeight ->
-
-                    // 只应用到与当前图片尺寸相同的未裁切图片
-                    var appliedCount = 0
-                    var skippedCount = 0
-                    tierImages.forEachIndexed { index, tierImage ->
-                        if (!tierImage.isCropped) {
-                            try {
-                                // 加载原图获取尺寸
-                                val originalUri = tierImage.originalUri ?: tierImage.uri
-                                context.contentResolver.openInputStream(originalUri)?.use { stream ->
-                                    val options = BitmapFactory.Options().apply {
-                                        inJustDecodeBounds = true
-                                    }
-                                    BitmapFactory.decodeStream(stream, null, options)
-                                    val imageWidth = options.outWidth
-                                    val imageHeight = options.outHeight
-
-                                    // 检查尺寸是否匹配
-                                    if (imageWidth != sourceImageWidth || imageHeight != sourceImageHeight) {
-                                        skippedCount++
-                                        return@use
-                                    }
-
-                                    // 计算裁切区域
-                                    val cropWidth: Int
-                                    val cropHeight: Int
-                                    if (currentCropState.useCustomCrop && currentCropState.customCropWidth > 0 && currentCropState.customCropHeight > 0) {
-                                        cropWidth = currentCropState.customCropWidth.coerceIn(1, imageWidth)
-                                        cropHeight = currentCropState.customCropHeight.coerceIn(1, imageHeight)
-                                    } else {
-                                        val aspectRatio = currentCropState.cropRatio
-                                        if (imageWidth.toFloat() / imageHeight > aspectRatio) {
-                                            cropHeight = imageHeight
-                                            cropWidth = (imageHeight * aspectRatio).toInt()
-                                        } else {
-                                            cropWidth = imageWidth
-                                            cropHeight = (imageWidth / aspectRatio).toInt()
-                                        }
-                                    }
-
-                                    // 根据位置计算偏移
-                                    val maxXOffset = imageWidth - cropWidth
-                                    val maxYOffset = imageHeight - cropHeight
-                                    val xOffset = (maxXOffset * currentCropState.positionX).toInt()
-                                    val yOffset = (maxYOffset * currentCropState.positionY).toInt()
-
-                                    // 重新加载图片进行裁切
-                                    context.contentResolver.openInputStream(originalUri)?.use { cropStream ->
-                                        val originalBitmap = BitmapFactory.decodeStream(cropStream)
-                                        if (originalBitmap != null) {
-                                            val croppedBitmap = Bitmap.createBitmap(
-                                                originalBitmap,
-                                                xOffset,
-                                                yOffset,
-                                                cropWidth,
-                                                cropHeight
-                                            )
-
-                                            // 保存到工作目录
-                                            val workDir = File(presetManager.getWorkImagesDirectory(), PresetManager.IMAGES_FOLDER_NAME)
-                                            workDir.mkdirs()
-                                            val targetFile = File(workDir, "cropped_${System.currentTimeMillis()}_${index}.webp")
-                                            FileOutputStream(targetFile).use { out ->
-                                                croppedBitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 100, out)
-                                            }
-
-                                            // 更新图片状态
-                                            tierImages[index] = tierImage.copy(
-                                                uri = Uri.fromFile(targetFile),
-                                                originalUri = originalUri,
-                                                cropPositionX = currentCropState.positionX,
-                                                cropPositionY = currentCropState.positionY,
-                                                cropScale = currentCropState.scale,
-                                                isCropped = true,
-                                                cropRatio = currentCropState.cropRatio,
-                                                useCustomCrop = currentCropState.useCustomCrop,
-                                                customCropWidth = currentCropState.customCropWidth,
-                                                customCropHeight = currentCropState.customCropHeight
-                                            )
-                                            appliedCount++
-
-                                            // 清理
-                                            if (originalBitmap != croppedBitmap) {
-                                                originalBitmap.recycle()
-                                            }
-                                            croppedBitmap.recycle()
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                AppLogger.e("复用裁切设置到图片失败: ${tierImage.id}", e)
-                            }
-                        }
-                    }
-
-                    AppLogger.i("复用裁切设置完成，共应用到 $appliedCount 张图片，跳过 $skippedCount 张尺寸不匹配的图片")
-                    showToastWithoutIcon(
-                        context,
-                        context.getString(R.string.apply_to_all_success, appliedCount),
-                        Toast.LENGTH_SHORT
-                    )
-                }
-            )
-        }
-
-        // 设置小图标对话框
-        if (showSetBadgeDialog && imageForBadge != null) {
-            // 使用 derivedStateOf 确保当 tierImages 变化时自动获取最新的图片对象
-            val currentImage by remember(imageForBadge!!.id) {
-                derivedStateOf {
-                    val currentImageIndex = tierImages.indexOfFirst { it.id == imageForBadge!!.id }
-                    (if (currentImageIndex != -1) tierImages[currentImageIndex] else imageForBadge)!!
-                }
-            }
-            SetBadgeDialog(
-                badgeUri1 = currentImage.badgeUri,
-                badgeUri2 = currentImage.badgeUri2,
-                badgeUri3 = currentImage.badgeUri3,
-                presetManager = presetManager,
-                onDismiss = {
-                    showSetBadgeDialog = false
-                    imageForBadge = null
-                    badgeSelectionTarget = 0
-                },
-                onSelectBadge1 = { launchBadgePicker(1) },
-                onSelectBadge2 = { launchBadgePicker(2) },
-                onSelectBadge3 = { launchBadgePicker(3) },
-                onDeleteBadge1 = { deleteBadge(1) },
-                onDeleteBadge2 = { deleteBadge(2) },
-                onDeleteBadge3 = { deleteBadge(3) },
-                onAddBadge = { launchBadgePickerForAdding() },
-                onSelectBadgeFromPreview = { badgeUri, slot ->
-                    // 从预览区域选择小图标设置到指定槽位
-                    val index = tierImages.indexOfFirst { it.id == imageForBadge!!.id }
-                    if (index != -1) {
-                        tierImages[index] = when (slot) {
-                            1 -> tierImages[index].copy(badgeUri = badgeUri)
-                            2 -> tierImages[index].copy(badgeUri2 = badgeUri)
-                            else -> tierImages[index].copy(badgeUri3 = badgeUri)
-                        }
-                        AppLogger.i("从预览区域设置小图标$slot: ${imageForBadge!!.id}")
-                    }
-                },
-                onDeleteBadgeFromPreview = { badgeUri ->
-                    // 检查小图标是否被任何图片引用
-                    val isInUse = tierImages.any { image ->
-                        image.badgeUri == badgeUri ||
-                        image.badgeUri2 == badgeUri ||
-                        image.badgeUri3 == badgeUri
-                    }
-                    if (isInUse) {
-                        // 小图标正在被使用,显示提示
-                        showToastWithoutIcon(
-                            context,
-                            context.getString(R.string.badge_in_use_message),
-                            Toast.LENGTH_LONG
-                        )
-                        false
-                    } else {
-                        // 从预览区域删除小图标
-                        val success = deleteBadgeFile(badgeUri, presetManager)
-                        if (success) {
-                            showToastWithoutIcon(context, context.getString(R.string.badge_deleted))
-                        } else {
-                            showToastWithoutIcon(context, context.getString(R.string.badge_delete_failed))
-                        }
-                        success
-                    }
-                },
-                externalRefreshKey = badgeDialogRefreshKey // 传入外部刷新键，添加小图标后刷新列表
-            )
-        }
-
-        // 移动图片到其他层级对话框
-        if (showMoveImageDialog && selectedImageForAction != null) {
-            MoveImageDialog(
-                tiers = tiers,
-                currentTierLabel = selectedImageForAction!!.tierLabel,
-                onDismiss = {
-                    showMoveImageDialog = false
-                    selectedImageForAction = null
-                },
-                onMoveToTier = { targetTierLabel ->
-                    ImageOperationUtils.moveImageToTier(
-                        tierImages = tierImages,
-                        imageId = selectedImageForAction!!.id,
-                        targetTierLabel = targetTierLabel
-                    )
-                    showMoveImageDialog = false
-                    selectedImageForAction = null
-                },
-                onMoveToFirst = {
-                    ImageOperationUtils.moveImageToFirst(
-                        tierImages = tierImages,
-                        imageId = selectedImageForAction!!.id
-                    )
-                    showMoveImageDialog = false
-                    selectedImageForAction = null
-                },
-                onMoveToLast = {
-                    ImageOperationUtils.moveImageToLast(
-                        tierImages = tierImages,
-                        imageId = selectedImageForAction!!.id
-                    )
-                    showMoveImageDialog = false
-                    selectedImageForAction = null
-                },
-                onMoveLeft = {
-                    ImageOperationUtils.moveImageLeft(
-                        tierImages = tierImages,
-                        imageId = selectedImageForAction!!.id
-                    )
-                    showMoveImageDialog = false
-                    selectedImageForAction = null
-                },
-                onMoveRight = {
-                    ImageOperationUtils.moveImageRight(
-                        tierImages = tierImages,
-                        imageId = selectedImageForAction!!.id
-                    )
-                    showMoveImageDialog = false
-                    selectedImageForAction = null
-                }
-            )
-        }
-
-        // 编辑图片命名对话框
-        if (showEditImageNameDialog && selectedImageForAction != null) {
-            EditImageNameDialog(
-                currentName = selectedImageForAction!!.name,
-                onDismiss = {
-                    showEditImageNameDialog = false
-                    selectedImageForAction = null
-                },
-                onConfirm = { newName ->
-                    val index = tierImages.indexOfFirst { it.id == selectedImageForAction!!.id }
-                    if (index != -1) {
-                        tierImages[index] = tierImages[index].copy(name = newName)
-                        AppLogger.i("修改图片命名: ${selectedImageForAction!!.id} -> $newName")
-                    }
-                    showEditImageNameDialog = false
-                    selectedImageForAction = null
-                }
-            )
-        }
-
-        // 编辑标题对话框
-        if (showEditTitleDialog) {
-            EditTitleDialog(
-                currentTitle = tierListTitle,
-                onDismiss = { showEditTitleDialog = false },
-                onConfirm = { newTitle ->
-                    tierListTitle = newTitle
-                    AppLogger.i("修改标题: $newTitle")
-                    showEditTitleDialog = false
-                }
-            )
-        }
-
-        // 编辑作者对话框
-        if (showEditAuthorDialog) {
-            EditAuthorDialog(
-                currentAuthor = authorName,
-                onDismiss = { showEditAuthorDialog = false },
-                onConfirm = { newAuthor ->
-                    authorName = newAuthor
-                    AppLogger.i("修改作者: $newAuthor")
-                    showEditAuthorDialog = false
-                }
-            )
-        }
-
-        // 设置菜单对话框（功能菜单）
-        if (showSettingsMenu) {
-            SettingsMenuDialog(
-                onDismiss = { showSettingsMenu = false },
-                onShowInstructions = {
-                    showSettingsMenu = false
-                    showInstructionsDialog = true
-                },
-                onShowFeedback = {
-                    showSettingsMenu = false
-                    showAboutDialog = true
-                },
-                onImagePackage = {
-                    showSettingsMenu = false
-                    showManagePackagesDialog = true
-                },
-                onShowProgramSettings = {
-                    showSettingsMenu = false
-                    showProgramSettingsDialog = true
-                },
-                onManagePresets = {
-                    showSettingsMenu = false
-                    showManagePresetsDialog = true
-                }
-            )
-        }
-
-        // 程序设置对话框
-        if (showProgramSettingsDialog) {
-            ProgramSettingsDialog(
-                onDismiss = { showProgramSettingsDialog = false },
-                disableClickAdd = disableClickAdd,
-                onToggleDisableClickAdd = { newValue ->
-                    disableClickAdd = newValue
-                    prefs.edit().putBoolean("disable_click_add", newValue).apply()
-                    AppLogger.i("设置 禁用加添: $newValue")
-                },
-                floatOffsetX = floatOffsetX,
-                onFloatOffsetXChange = { newValue ->
-                    floatOffsetX = newValue
-                    prefs.edit().putFloat("float_offset_x", newValue).apply()
-                },
-                floatOffsetY = floatOffsetY,
-                onFloatOffsetYChange = { newValue ->
-                    floatOffsetY = newValue
-                    prefs.edit().putFloat("float_offset_y", newValue).apply()
-                },
-                externalBadgeEnabled = externalBadgeEnabled,
-                onToggleExternalBadge = { newValue ->
-                    externalBadgeEnabled = newValue
-                    prefs.edit().putBoolean("external_badge_enabled", newValue).apply()
-                    AppLogger.i("设置 外置小图: $newValue")
-                },
-                followSystemTheme = followSystemTheme,
-                onToggleFollowSystemTheme = { newValue ->
-                    onFollowSystemThemeChange?.invoke(newValue)
-                    AppLogger.i("设置 默认主题: $newValue")
-                },
-                onShowLanguageDialog = {
-                    showProgramSettingsDialog = false
-                    showLanguageDialog = true
-                },
-                disableCustomFont = disableCustomFont,
-                onToggleDisableCustomFont = { newValue ->
-                    onDisableCustomFontChange?.invoke(newValue)
-                },
-                nameBelowImage = nameBelowImage,
-                onToggleNameBelowImage = { newValue ->
-                    nameBelowImage = newValue
-                    prefs.edit().putBoolean("name_below_image", newValue).apply()
-                    AppLogger.i("设置 下置命名: $newValue")
-                }
-            )
-        }
-
-        // 资源管理对话框
-        if (showResourceManageDialog) {
-            ResourceManageDialog(
-                onDismiss = { showResourceManageDialog = false },
-                presetManager = presetManager,
-                onResettiermaster = {
-                    // 重置为默认模板
-                    tierListTitle = context.getString(R.string.default_title)
-                    authorName = ""
-                    tiers.clear()
-                    tiers.addAll(defaultTiers)
-                    tierImages.clear()
-                    // 清空层级位置信息,确保使用默认模板的层级标签
-                    tierRowPositions = emptyMap()
-                    pendingImages = emptyList()
-                    // 清理裁剪设置
-                    prefs.edit()
-                        .remove("crop_ratio")
-                        .remove("custom_crop_width")
-                        .remove("custom_crop_height")
-                        .remove("use_custom_crop_size")
-                        .apply()
-                }
-            )
-        }
-
-        // 管理图包对话框
-        if (showManagePackagesDialog) {
-            ManagePackagesDialog(
-                context = context,
-                presetManager = presetManager,
-                onDismiss = { showManagePackagesDialog = false },
-                onImportPackage = { showImportPackageDialog = true },
-                onPackageSelected = { packageItem ->
-                    selectedPackage = packageItem
-                    AppLogger.i("选择图包: ${packageItem.name}")
-                    // 计算图包中的图片数量
-                    scope.launch {
-                        selectedPackageImageCount = ResourcePackageManager.countImagesInImportedPackage(packageItem.file)
-                        showManagePackagesDialog = false
-                        showPackageConfirmDialog = true
-                    }
-                },
-                onExportPackage = { packageItem ->
-                    packageToExport = packageItem
-                    // 跳过草稿保存标记
-                    onSkipDraftSave?.invoke()
-                    // 启动文件选择器
-                    packageExportLauncher.launch("${packageItem.name}.zip")
-                }
-            )
-        }
-
-        // 图包确认对话框
-        if (showPackageConfirmDialog && selectedPackage != null) {
-            PackageConfirmDialog(
-                packageName = selectedPackage!!.name,
-                imageCount = selectedPackageImageCount,
-                isImporting = isImportingPackage,
-                onDismiss = { 
-                    if (!isImportingPackage) {
-                        showPackageConfirmDialog = false
-                        selectedPackage = null
-                    }
-                },
-                onConfirm = { target ->
-                    if (isImportingPackage) return@PackageConfirmDialog
-                    isImportingPackage = true
-                    scope.launch {
-                        try {
-                            val targetDir = when (target) {
-                                ImportTarget.PENDING -> File(presetManager.getWorkImagesDirectory(), PresetManager.IMAGES_FOLDER_NAME)
-                                ImportTarget.BADGES -> File(presetManager.getWorkImagesDirectory(), PresetManager.BADGES_FOLDER_NAME)
-                            }
-                            
-                            val imageUris = ResourcePackageManager.extractImportedPackage(context, selectedPackage!!.file, targetDir)
-                            
-                            if (imageUris.isNotEmpty()) {
-                                when (target) {
-                                    ImportTarget.PENDING -> {
-                                        pendingImages = pendingImages + imageUris
-                                        AppLogger.i("导入图包到待分级区域: ${selectedPackage?.name} - ${imageUris.size} 张图片")
-                                        showToastWithoutIcon(
-                                            context,
-                                            context.getString(R.string.import_success, imageUris.size)
-                                        )
-                                    }
-                                    ImportTarget.BADGES -> {
-                                        AppLogger.i("导入图包到小图标区域: ${selectedPackage?.name} - ${imageUris.size} 个")
-                                        showToastWithoutIcon(
-                                            context,
-                                            context.getString(R.string.badge_added)
-                                        )
-                                    }
-                                }
-                            } else {
-                                showToastWithoutIcon(
-                                    context,
-                                    resources.getString(R.string.no_images_in_zip)
-                                )
-                            }
-                        } catch (e: Exception) {
-                            AppLogger.e("导入图包失败", e)
-                            showToastWithoutIcon(
-                                context,
-                                resources.getString(R.string.import_failed, e.message),
-                                Toast.LENGTH_LONG
-                            )
-                        }
-                        isImportingPackage = false
-                        showPackageConfirmDialog = false
-                        selectedPackage = null
-                    }
-                }
-            )
-        }
-
-        // 导入图包对话框
-        if (showImportPackageDialog) {
-            ImportPackageDialog(
-                context = context,
-                presetManager = presetManager,
-                pendingImages = pendingImages,
-                onPendingImagesChanged = { pendingImages = it },
-                onDismiss = { showImportPackageDialog = false },
-                onSkipDraftSave = onSkipDraftSave,
-                onResumeDraftSave = onResumeDraftSave
-            )
-        }
-
-        // 语言选择对话框
-        if (showLanguageDialog) {
-            LanguageSelectionDialog(
-                currentLanguage = currentLanguage,
-                onDismiss = { showLanguageDialog = false },
-                onLanguageSelected = { language ->
-                    if (language != currentLanguage) {
-                        currentLanguage = language
-                        languageChanged = true
-                        AppLogger.i("切换语言: $language")
-                    }
-                }
-            )
-        }
-
-        // 使用说明对话框
-        if (showInstructionsDialog) {
-            InstructionsDialog(
-                onDismiss = { showInstructionsDialog = false }
-            )
-        }
-
-        // 关于程序对话框
-        if (showAboutDialog) {
-            AboutDialog(
-                onDismiss = { showAboutDialog = false },
-                context = context
-            )
-        }
-
-        // 管理预设对话框
-        if (showManagePresetsDialog) {
-            ManagePresetsDialog(
-                onDismiss = { showManagePresetsDialog = false },
-                onExportPreset = {
-                    showManagePresetsDialog = false
-                    presetOperation = PresetOperation.EXPORT
-                    // 检查标题是否为默认值
-                    if (tierListTitle == resources.getString(R.string.default_title)) {
-                        showPresetNameDialog = true
-                    } else {
-                        pendingPresetName = tierListTitle
-                        onSkipDraftSave?.invoke()
-                        presetExportLauncher.launch("${tierListTitle}.tdds")
-                    }
-                },
-                onImportPreset = {
-                    showManagePresetsDialog = false
-                    onSkipDraftSave?.invoke()
-                    presetFilePicker.launch("*/*")
-                },
-                onSavePreset = {
-                    showManagePresetsDialog = false
-                    presetOperation = PresetOperation.SAVE
-                    // 检查标题是否为默认值
-                    if (tierListTitle == resources.getString(R.string.default_title)) {
-                        showPresetNameDialog = true
-                    } else {
-                        pendingPresetName = tierListTitle
-                        showPresetOverwriteConfirmDialog = true
-                    }
-                },
-                onManagePresetList = {
-                    showManagePresetsDialog = false
-                    showPresetListDialog = true
-                }
-            )
-        }
-
-        // 预设名称输入对话框
-        if (showPresetNameDialog) {
-            PresetNameDialog(
-                defaultName = if (tierListTitle == resources.getString(R.string.default_title)) "" else tierListTitle,
-                onDismiss = { showPresetNameDialog = false },
-                onConfirm = { name ->
-                    showPresetNameDialog = false
-                    pendingPresetName = name
-                    when (presetOperation) {
-                        PresetOperation.EXPORT -> {
-                            onSkipDraftSave?.invoke()
-                            presetExportLauncher.launch("$name.tdds")
-                        }
-                        PresetOperation.SAVE -> {
-                            showPresetOverwriteConfirmDialog = true
-                        }
-                        else -> {}
-                    }
-                }
-            )
-        }
-
-        // 预设覆盖确认对话框
-        if (showPresetOverwriteConfirmDialog) {
-            val isNameExists = presetManager.isPresetNameExists(pendingPresetName)
-            if (isNameExists) {
-                // 使用自定义Dialog实现三个按钮
-                Dialog(onDismissRequest = { showPresetOverwriteConfirmDialog = false }) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .padding(16.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = CardDefaults.cardColors(
-                            containerColor = extendedColors.cardBackground
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 20.dp, horizontal = 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // 标题
-                            Text(
-                                text = stringResource(R.string.preset_name_exists),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // 提示文本
-                            Text(
-                                text = stringResource(R.string.preset_name_exists_message, pendingPresetName),
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
-                            // 按钮区域
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // 覆盖按钮
-                                Button(
-                                    onClick = {
-                                        showPresetOverwriteConfirmDialog = false
-                                        isSavingPreset = true
-                                        scope.launch {
-                                            // 让出时间片，确保UI有时间显示加载对话框
-                                            yield()
-                                            try {
-                                                // 在后台线程执行耗时操作
-                                                val presetData = withContext(Dispatchers.IO) {
-                                                    presetManager.createPresetData(
-                                                        title = pendingPresetName,
-                                                        author = authorName,
-                                                        tiers = tiers,
-                                                        tierImages = tierImages,
-                                                        pendingImages = pendingImages,
-                                                        cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                                                        cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                                                        customCropWidth = prefs.getInt("custom_crop_width", 0),
-                                                        customCropHeight = prefs.getInt("custom_crop_height", 0),
-                                                        useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                                                        cropRatio = prefs.getFloat("crop_ratio", 1f)
-                                                    )
-                                                }
-                                                withContext(Dispatchers.IO) {
-                                                    presetManager.savePreset(pendingPresetName, presetData)
-                                                }
-
-                                                showToastWithoutIcon(context, resources.getString(R.string.preset_save_success))
-                                                AppLogger.i("覆盖预设成功: $pendingPresetName")
-                                            } catch (e: Exception) {
-                                                AppLogger.e("覆盖预设失败", e)
-                                            showToastWithoutIcon(
-                                                context,
-                                                resources.getString(R.string.preset_save_failed, e.message),
-                                                Toast.LENGTH_LONG
-                                            )
-                                            }
-                                            isSavingPreset = false
-                                            pendingPresetName = ""
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = extendedColors.buttonContainer,
-                                        contentColor = extendedColors.buttonContent
-                                    )
-                                ) {
-                                    Text(stringResource(R.string.overwrite))
-                                }
-                                
-                                // 创建新预设按钮
-                                OutlinedButton(
-                                    onClick = {
-                                        // 关闭覆盖对话框，显示名称输入对话框让用户输入新名称
-                                        showPresetOverwriteConfirmDialog = false
-                                        showPresetNameDialog = true
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(stringResource(R.string.create_new_preset))
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // 直接保存
-                showPresetOverwriteConfirmDialog = false
-                isSavingPreset = true
-                scope.launch {
-                    // 让出时间片，确保UI有时间显示加载对话框
-                    yield()
-                    try {
-                        val presetData = presetManager.createPresetData(
-                            title = pendingPresetName,
-                            author = authorName,
-                            tiers = tiers,
-                            tierImages = tierImages,
-                            pendingImages = pendingImages,
-                            cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                            cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                            customCropWidth = prefs.getInt("custom_crop_width", 0),
-                            customCropHeight = prefs.getInt("custom_crop_height", 0),
-                            useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                            cropRatio = prefs.getFloat("crop_ratio", 1f)
-                        )
-                        presetManager.savePreset(pendingPresetName, presetData)
-
-                        showToastWithoutIcon(context, resources.getString(R.string.preset_save_success))
-                        AppLogger.i("保存预设成功: $pendingPresetName")
-                    } catch (e: Exception) {
-                        AppLogger.e("保存预设失败", e)
-                        showToastWithoutIcon(
-                            context,
-                            resources.getString(R.string.preset_save_failed, e.message),
-                            Toast.LENGTH_LONG
-                        )
-                    }
-                    isSavingPreset = false
-                    pendingPresetName = ""
-                }
-            }
-        }
+        // 对话框集合
+        TierListDialogs(
+            dialogState = dialogState,
+            handlers = dialogHandlers,
+            context = context,
+            scope = scope,
+            prefs = prefs,
+            presetManager = presetManager,
+            tierImages = tierImages,
+            tiers = tiers,
+            tierListTitle = tierListTitle,
+            authorName = authorName,
+            pendingImages = pendingImages,
+            defaultTiers = defaultTiers,
+            tierRowPositions = tierRowPositions,
+            disableClickAdd = disableClickAdd,
+            floatOffsetX = floatOffsetX,
+            floatOffsetY = floatOffsetY,
+            externalBadgeEnabled = externalBadgeEnabled,
+            followSystemTheme = followSystemTheme,
+            disableCustomFont = disableCustomFont,
+            nameBelowImage = nameBelowImage,
+            isDarkTheme = isDarkTheme,
+            currentLanguage = currentLanguage,
+            onTitleChange = { tierListTitle = it },
+            onAuthorChange = { authorName = it },
+            onTiersChange = { /* tiers 是 mutableStateList，变更会自动触发重组 */ },
+            onTierImagesChange = { /* tierImages 是 mutableStateList，变更会自动触发重组 */ },
+            onPendingImagesChange = { pendingImages = it },
+            onTierRowPositionsChange = { tierRowPositions = it },
+            onDisableClickAddChange = { disableClickAdd = it },
+            onFloatOffsetXChange = { floatOffsetX = it },
+            onFloatOffsetYChange = { floatOffsetY = it },
+            onExternalBadgeChange = { externalBadgeEnabled = it },
+            onFollowSystemThemeChange = onFollowSystemThemeChange,
+            onDisableCustomFontChange = onDisableCustomFontChange,
+            onNameBelowImageChange = { nameBelowImage = it },
+            onLanguageChange = { 
+                currentLanguage = it
+                languageChanged = true
+            },
+            onSkipDraftSave = onSkipDraftSave,
+            onResumeDraftSave = onResumeDraftSave,
+            presetExportLauncher = presetExportLauncher,
+            packageExportLauncher = packageExportLauncher,
+            presetFilePicker = presetFilePicker
+        )
 
         // 加载资源中对话框（导入/导出/保存预设/导出图包）
         if (isImportingPreset || isExportingPreset || isSavingPreset || isExportingPackage) {
             LoadingDialog(message = stringResource(R.string.loading_resources))
-        }
-
-        // 导入预设覆盖确认对话框
-        if (showImportOverwriteDialog && pendingImportResult != null) {
-            ImportOverwriteDialog(
-                presetName = pendingImportResult?.presetData?.title ?: "",
-                onDismiss = {
-                    showImportOverwriteDialog = false
-                    pendingImportResult?.presetFile?.delete()
-                    pendingImportResult = null
-                },
-                onOverwrite = {
-                    val importResult = pendingImportResult
-                    showImportOverwriteDialog = false
-                    pendingImportResult = null
-
-                    importResult?.let { result ->
-                        scope.launch {
-                            try {
-                                // 覆盖现有预设，获取新的预设文件
-                                val newPresetFile = result.existingPresetFile?.let { existingFile ->
-                                    presetManager.overwritePreset(
-                                        result.presetFile,
-                                        existingFile
-                                    )
-                                } ?: result.presetFile
-
-                                // 应用预设数据（使用新的预设文件）
-                                val applyResult = presetManager.applyPreset(newPresetFile)
-                                // 更新UI状态
-                                tiers.clear()
-                                tiers.addAll(applyResult.tiers.map { tierData ->
-                                    TierItem(tierData.label, try {
-                                        Color(android.graphics.Color.parseColor("#${tierData.color}"))
-                                    } catch (e: Exception) { Color.Gray })
-                                })
-                                tierImages.clear()
-                                tierImages.addAll(applyResult.tierImages.map { appliedImage ->
-                                    TierImage(
-                                        id = appliedImage.id,
-                                        tierLabel = appliedImage.tierLabel,
-                                        uri = appliedImage.uri,
-                                        name = appliedImage.name,
-                                        badgeUri = appliedImage.badgeUri,
-                                        badgeUri2 = appliedImage.badgeUri2,
-                                        badgeUri3 = appliedImage.badgeUri3,
-                                        originalUri = appliedImage.originalUri,
-                                        cropPositionX = appliedImage.cropPositionX,
-                                        cropPositionY = appliedImage.cropPositionY,
-                                        cropScale = appliedImage.cropScale,
-                                        isCropped = appliedImage.isCropped,
-                                        cropRatio = appliedImage.cropRatio,
-                                        useCustomCrop = appliedImage.useCustomCrop,
-                                        customCropWidth = appliedImage.customCropWidth,
-                                        customCropHeight = appliedImage.customCropHeight
-                                    )
-                                })
-                                pendingImages = applyResult.pendingImages
-                                tierListTitle = result.presetData.title
-                                authorName = result.presetData.author
-                                // 清理旧的裁剪设置并应用新的
-                                prefs.edit()
-                                    .remove("crop_ratio")
-                                    .remove("custom_crop_width")
-                                    .remove("custom_crop_height")
-                                    .remove("use_custom_crop_size")
-                                    .putInt("custom_crop_width", applyResult.customCropWidth)
-                                    .putInt("custom_crop_height", applyResult.customCropHeight)
-                                    .putBoolean("use_custom_crop_size", applyResult.useCustomCropSize)
-                                    .putFloat("crop_ratio", applyResult.cropRatio)
-                                    .apply()
-                                // 清空层级位置信息,确保使用预设中的层级标签
-                                tierRowPositions = emptyMap()
-
-                                showToastWithoutIcon(context, resources.getString(R.string.preset_overwrite_success))
-                                AppLogger.i("覆盖并加载预设成功: ${result.presetData.title}")
-
-                                // 静默保存覆盖原预设文件（转换为WebP格式）
-                                withContext(Dispatchers.IO) {
-                                    try {
-                                        val workImagesDir = presetManager.getWorkImagesDirectory()
-                                        val newPresetData = presetManager.createPresetData(
-                                            title = tierListTitle,
-                                            author = authorName,
-                                            tiers = tiers,
-                                            tierImages = tierImages,
-                                            pendingImages = pendingImages,
-                                            cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                                            cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                                            customCropWidth = prefs.getInt("custom_crop_width", 0),
-                                            customCropHeight = prefs.getInt("custom_crop_height", 0),
-                                            useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                                            cropRatio = prefs.getFloat("crop_ratio", 1f)
-                                        )
-                                        presetManager.exportPreset(
-                                            presetName = tierListTitle,
-                                            presetData = newPresetData,
-                                            tempDir = workImagesDir,
-                                            outputFile = newPresetFile
-                                        )
-                                        AppLogger.i("静默覆盖预设成功: ${newPresetFile.name}")
-                                    } catch (e: Exception) {
-                                        AppLogger.e("静默覆盖预设失败", e)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                AppLogger.e("覆盖预设失败", e)
-                                showToastWithoutIcon(
-                                    context,
-                                    resources.getString(R.string.preset_overwrite_failed, e.message),
-                                    Toast.LENGTH_LONG
-                                )
-                            }
-                        }
-                    }
-                }
-            )
-        }
-
-        // 预设列表对话框
-        if (showPresetListDialog) {
-            val presetImportSuccessMsg = stringResource(R.string.preset_import_success)
-            val presetImportFailedMsg = stringResource(R.string.preset_import_failed)
-            PresetListDialog(
-                presetManager = presetManager,
-                onDismiss = { showPresetListDialog = false },
-                onApplyPreset = { presetInfo ->
-                    // 注意：此函数在 PresetListDialog 的协程中调用，不需要再启动新协程
-                    try {
-                        val applyResult = presetManager.applyPreset(presetInfo.file)
-                        // 更新UI状态
-                        tiers.clear()
-                        tiers.addAll(applyResult.tiers.map { tierData ->
-                            TierItem(tierData.label, try {
-                                Color(android.graphics.Color.parseColor("#${tierData.color}"))
-                            } catch (e: Exception) { Color.Gray })
-                        })
-                        tierImages.clear()
-                        tierImages.addAll(applyResult.tierImages.map { appliedImage ->
-                            TierImage(
-                                id = appliedImage.id,
-                                tierLabel = appliedImage.tierLabel,
-                                uri = appliedImage.uri,
-                                name = appliedImage.name,
-                                badgeUri = appliedImage.badgeUri,
-                                badgeUri2 = appliedImage.badgeUri2,
-                                badgeUri3 = appliedImage.badgeUri3,
-                                originalUri = appliedImage.originalUri,
-                                cropPositionX = appliedImage.cropPositionX,
-                                cropPositionY = appliedImage.cropPositionY,
-                                cropScale = appliedImage.cropScale,
-                                isCropped = appliedImage.isCropped,
-                                cropRatio = appliedImage.cropRatio,
-                                useCustomCrop = appliedImage.useCustomCrop,
-                                customCropWidth = appliedImage.customCropWidth,
-                                customCropHeight = appliedImage.customCropHeight
-                            )
-                        })
-                        pendingImages = applyResult.pendingImages
-                        tierListTitle = applyResult.title
-                        authorName = applyResult.author
-                        // 清空层级位置信息,确保使用预设中的层级标签
-                        tierRowPositions = emptyMap()
-                        // 清理旧的裁剪设置并应用新的
-                        prefs.edit()
-                            .remove("crop_ratio")
-                            .remove("custom_crop_width")
-                            .remove("custom_crop_height")
-                            .remove("use_custom_crop_size")
-                            .putFloat("crop_position_x", applyResult.cropPositionX)
-                            .putFloat("crop_position_y", applyResult.cropPositionY)
-                            .putInt("custom_crop_width", applyResult.customCropWidth)
-                            .putInt("custom_crop_height", applyResult.customCropHeight)
-                            .putBoolean("use_custom_crop_size", applyResult.useCustomCropSize)
-                            .putFloat("crop_ratio", applyResult.cropRatio)
-                            .apply()
-                        // 注意：不要在这里关闭对话框，让PresetListDialog在finally块中处理
-                        // 这样可以确保加载状态正确显示
-                        showToastWithoutIcon(context, presetImportSuccessMsg)
-                        AppLogger.i("应用预设成功: ${presetInfo.name}")
-                    } catch (e: Exception) {
-                        AppLogger.e("应用预设失败", e)
-                        showToastWithoutIcon(
-                            context,
-                            String.format(presetImportFailedMsg, e.message),
-                            Toast.LENGTH_LONG
-                        )
-                        // 发生错误时保持对话框打开，让用户知道失败了
-                        throw e
-                    }
-                }
-            )
-        }
-
-        // 删除层级确认对话框
-        if (showDeleteTierDialog && tierToDelete != null) {
-            AlertDialog(
-                onDismissRequest = { showDeleteTierDialog = false },
-                containerColor = extendedColors.cardBackground,
-                title = { Text(stringResource(R.string.delete_tier)) },
-                text = { Text(stringResource(R.string.delete_tier_confirm, tierToDelete!!.label)) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            val index = tiers.indexOfFirst { it.label == tierToDelete!!.label }
-                            if (index != -1) {
-                                // 将该层级的所有图片返回到待放置区（避免重复，返回原图）
-                                val imagesToReturn = tierImages.filter { it.tierLabel == tierToDelete!!.label }
-                                val newPendingImages = imagesToReturn.map { it.originalUri ?: it.uri }
-                                    .filter { it !in pendingImages }
-                                if (newPendingImages.isNotEmpty()) {
-                                    pendingImages = pendingImages + newPendingImages
-                                }
-                                val returnedCount = newPendingImages.size
-                                val deletedCount = imagesToReturn.size
-                                tiers.removeAt(index)
-                                tierImages.removeAll { it.tierLabel == tierToDelete!!.label }
-                                // 从 tierRowPositions 中移除该层级的位置信息
-                                tierRowPositions = tierRowPositions - tierToDelete!!.label
-                                AppLogger.i("删除层级 - 层级: ${tierToDelete!!.label}, 删除图片: ${deletedCount}张, 返回待放置区: ${returnedCount}张")
-                            }
-                            showDeleteTierDialog = false
-                            tierToDelete = null
-                        }
-                    ) {
-                        Text(stringResource(R.string.delete), color = Color.Red)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteTierDialog = false }) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                }
-            )
-        }
-
-        // 图片预览对话框
-        if (showPreviewDialog && previewBitmap != null) {
-            PreviewDialog(
-                bitmap = previewBitmap!!,
-                isSaving = isSavingChart,
-                isSharing = isSharingChart,
-                onDismiss = {
-                    showPreviewDialog = false
-                    previewBitmap = null
-                },
-                onSave = {
-                    isSavingChart = true
-                    scope.launch {
-                        try {
-                            saveBitmapToGallery(context, previewBitmap!!, tierListTitle)
-                            showPreviewDialog = false
-                            previewBitmap = null
-                        } finally {
-                            isSavingChart = false
-                        }
-                    }
-                },
-                onShare = {
-                    isSharingChart = true
-                    scope.launch {
-                        try {
-                            shareBitmap(context, previewBitmap!!, tierListTitle)
-                        } finally {
-                            isSharingChart = false
-                        }
-                    }
-                },
-                onThemeToggle = {
-                    // 切换预览主题
-                    scope.launch {
-                        previewIsDarkTheme = !previewIsDarkTheme
-                        previewBitmap = generateTierListBitmap(
-                            context, tiers, tierImages, tierListTitle, authorName, previewIsDarkTheme, externalBadgeEnabled, disableCustomFont, nameBelowImage
-                        )
-                    }
-                },
-                isDarkTheme = isDarkTheme,
-                appDarkTheme = previewIsDarkTheme
-            )
         }
 
         // Toast宿主 - 显示全局Toast提示（使用Popup确保在最上层，覆盖对话框）

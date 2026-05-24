@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -344,10 +344,10 @@ fun BadgePreviewArea(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                items(
+                itemsIndexed(
                     items = availableBadges,
-                    key = { it.toString() }
-                ) { badgeUri ->
+                    key = { index, badgeUri -> "${index}_${badgeUri}" }
+                ) { index, badgeUri ->
                     var offsetY by remember(badgeUri) { mutableFloatStateOf(0f) }
                     val density = LocalDensity.current
                     val itemHeightPx = with(density) { 64.dp.toPx() }
