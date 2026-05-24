@@ -1,7 +1,6 @@
 package com.tdds.jh.ui.tierlist.state
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
@@ -11,6 +10,7 @@ import com.tdds.jh.AppLogger
 import com.tdds.jh.PresetManager
 import com.tdds.jh.bitmap.TierImage
 import com.tdds.jh.ui.tierlist.model.PresetOperation
+import com.tdds.jh.ui.tierlist.service.SettingsService
 import com.tdds.jh.ui.tierlist.utils.ImageOperationUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -24,7 +24,7 @@ class DialogHandlers(
     private val context: Context,
     private val dialogState: DialogState,
     private val scope: CoroutineScope,
-    private val prefs: SharedPreferences,
+    private val settingsService: SettingsService,
     private val presetManager: PresetManager,
     private val tierImages: SnapshotStateList<TierImage>,
     private val onTierImagesChange: () -> Unit,
@@ -284,23 +284,23 @@ class DialogHandlers(
 
     fun onToggleDisableClickAdd(newValue: Boolean, onValueChange: (Boolean) -> Unit) {
         onValueChange(newValue)
-        prefs.edit().putBoolean("disable_click_add", newValue).apply()
+        settingsService.disableClickAdd = newValue
         AppLogger.i("设置 禁用加添: $newValue")
     }
 
     fun onFloatOffsetXChange(newValue: Float, onValueChange: (Float) -> Unit) {
         onValueChange(newValue)
-        prefs.edit().putFloat("float_offset_x", newValue).apply()
+        settingsService.floatOffsetX = newValue
     }
 
     fun onFloatOffsetYChange(newValue: Float, onValueChange: (Float) -> Unit) {
         onValueChange(newValue)
-        prefs.edit().putFloat("float_offset_y", newValue).apply()
+        settingsService.floatOffsetY = newValue
     }
 
     fun onToggleExternalBadge(newValue: Boolean, onValueChange: (Boolean) -> Unit) {
         onValueChange(newValue)
-        prefs.edit().putBoolean("external_badge_enabled", newValue).apply()
+        settingsService.externalBadgeEnabled = newValue
         AppLogger.i("设置 外置小图: $newValue")
     }
 
@@ -320,7 +320,7 @@ class DialogHandlers(
 
     fun onToggleNameBelowImage(newValue: Boolean, onValueChange: (Boolean) -> Unit) {
         onValueChange(newValue)
-        prefs.edit().putBoolean("name_below_image", newValue).apply()
+        settingsService.nameBelowImage = newValue
         AppLogger.i("设置 下置命名: $newValue")
     }
 
@@ -346,12 +346,7 @@ class DialogHandlers(
         onTierImagesReset()
         onTierRowPositionsReset()
         onPendingImagesReset(emptyList())
-        prefs.edit()
-            .remove("crop_ratio")
-            .remove("custom_crop_width")
-            .remove("custom_crop_height")
-            .remove("use_custom_crop_size")
-            .apply()
+        settingsService.clearCropSettings()
     }
 
     // ==================== 图包管理对话框处理器 ====================

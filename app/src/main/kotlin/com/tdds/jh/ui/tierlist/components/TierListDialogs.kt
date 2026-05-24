@@ -1,7 +1,6 @@
 package com.tdds.jh.ui.tierlist.components
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
@@ -52,6 +51,7 @@ import com.tdds.jh.ui.dialog.edit.EditTitleDialog
 import com.tdds.jh.ui.dialog.settings.LanguageSelectionDialog
 import com.tdds.jh.ui.dialog.settings.ProgramSettingsDialog
 import com.tdds.jh.ui.theme.LocalExtendedColors
+import com.tdds.jh.ui.tierlist.service.SettingsService
 import com.tdds.jh.ui.tierlist.state.DialogHandlers
 import com.tdds.jh.ui.tierlist.state.DialogState
 import com.tdds.jh.ui.tierlist.utils.ImageOperationUtils
@@ -71,7 +71,7 @@ import java.io.File
  * @param handlers 对话框事件处理器
  * @param context 上下文
  * @param scope 协程作用域
- * @param prefs SharedPreferences
+ * @param settingsService 设置服务
  * @param presetManager 预设管理器
  * @param tierImages 层级图片列表
  * @param tiers 层级列表
@@ -115,7 +115,7 @@ fun TierListDialogs(
     handlers: DialogHandlers,
     context: Context,
     scope: CoroutineScope,
-    prefs: SharedPreferences,
+    settingsService: SettingsService,
     presetManager: PresetManager,
     tierImages: MutableList<TierImage>,
     tiers: MutableList<TierItem>,
@@ -506,7 +506,7 @@ fun TierListDialogs(
             handlers = handlers,
             context = context,
             scope = scope,
-            prefs = prefs,
+            settingsService = settingsService,
             presetManager = presetManager,
             tierImages = tierImages,
             tiers = tiers,
@@ -531,7 +531,7 @@ fun TierListDialogs(
                     dialogState = dialogState,
                     context = context,
                     scope = scope,
-                    prefs = prefs,
+                    settingsService = settingsService,
                     presetManager = presetManager,
                     tierImages = tierImages,
                     tiers = tiers,
@@ -565,7 +565,7 @@ fun TierListDialogs(
                     onTitleChange = onTitleChange,
                     onAuthorChange = onAuthorChange,
                     onTierRowPositionsChange = onTierRowPositionsChange,
-                    prefs = prefs,
+                    settingsService = settingsService,
                     context = context,
                     presetImportSuccessMsg = presetImportSuccessMsg,
                     presetImportFailedMsg = presetImportFailedMsg
@@ -863,7 +863,7 @@ private fun handleImportOverwrite(
     dialogState: DialogState,
     context: Context,
     scope: CoroutineScope,
-    prefs: SharedPreferences,
+    settingsService: SettingsService,
     presetManager: PresetManager,
     tierImages: MutableList<TierImage>,
     tiers: MutableList<TierItem>,
@@ -922,16 +922,11 @@ private fun handleImportOverwrite(
                 onTitleChange(result.presetData.title)
                 onAuthorChange(result.presetData.author)
 
-                prefs.edit()
-                    .remove("crop_ratio")
-                    .remove("custom_crop_width")
-                    .remove("custom_crop_height")
-                    .remove("use_custom_crop_size")
-                    .putInt("custom_crop_width", applyResult.customCropWidth)
-                    .putInt("custom_crop_height", applyResult.customCropHeight)
-                    .putBoolean("use_custom_crop_size", applyResult.useCustomCropSize)
-                    .putFloat("crop_ratio", applyResult.cropRatio)
-                    .apply()
+                settingsService.clearCropSettings()
+                settingsService.customCropWidth = applyResult.customCropWidth
+                settingsService.customCropHeight = applyResult.customCropHeight
+                settingsService.useCustomCropSize = applyResult.useCustomCropSize
+                settingsService.cropRatio = applyResult.cropRatio
 
                 onTierRowPositionsChange(emptyMap())
 
@@ -947,12 +942,12 @@ private fun handleImportOverwrite(
                             tiers = tiers,
                             tierImages = tierImages,
                             pendingImages = applyResult.pendingImages,
-                            cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                            cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                            customCropWidth = prefs.getInt("custom_crop_width", 0),
-                            customCropHeight = prefs.getInt("custom_crop_height", 0),
-                            useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                            cropRatio = prefs.getFloat("crop_ratio", 1f)
+                            cropPositionX = settingsService.cropPositionX,
+                            cropPositionY = settingsService.cropPositionY,
+                            customCropWidth = settingsService.customCropWidth,
+                            customCropHeight = settingsService.customCropHeight,
+                            useCustomCropSize = settingsService.useCustomCropSize,
+                            cropRatio = settingsService.cropRatio
                         )
                         presetManager.exportPreset(
                             presetName = result.presetData.title,
@@ -988,7 +983,7 @@ private fun handleApplyPreset(
     onTitleChange: (String) -> Unit,
     onAuthorChange: (String) -> Unit,
     onTierRowPositionsChange: (Map<String, android.graphics.Rect>) -> Unit,
-    prefs: SharedPreferences,
+    settingsService: SettingsService,
     context: Context,
     presetImportSuccessMsg: String,
     presetImportFailedMsg: String
@@ -1032,18 +1027,13 @@ private fun handleApplyPreset(
         onAuthorChange(applyResult.author)
         onTierRowPositionsChange(emptyMap())
 
-        prefs.edit()
-            .remove("crop_ratio")
-            .remove("custom_crop_width")
-            .remove("custom_crop_height")
-            .remove("use_custom_crop_size")
-            .putFloat("crop_position_x", applyResult.cropPositionX)
-            .putFloat("crop_position_y", applyResult.cropPositionY)
-            .putInt("custom_crop_width", applyResult.customCropWidth)
-            .putInt("custom_crop_height", applyResult.customCropHeight)
-            .putBoolean("use_custom_crop_size", applyResult.useCustomCropSize)
-            .putFloat("crop_ratio", applyResult.cropRatio)
-            .apply()
+        settingsService.clearCropSettings()
+        settingsService.cropPositionX = applyResult.cropPositionX
+        settingsService.cropPositionY = applyResult.cropPositionY
+        settingsService.customCropWidth = applyResult.customCropWidth
+        settingsService.customCropHeight = applyResult.customCropHeight
+        settingsService.useCustomCropSize = applyResult.useCustomCropSize
+        settingsService.cropRatio = applyResult.cropRatio
 
         showToastWithoutIcon(context, presetImportSuccessMsg)
         AppLogger.i("应用预设成功: ${presetInfo.name}")
@@ -1064,7 +1054,7 @@ private fun PresetOverwriteConfirmDialog(
     handlers: DialogHandlers,
     context: Context,
     scope: CoroutineScope,
-    prefs: SharedPreferences,
+    settingsService: SettingsService,
     presetManager: PresetManager,
     tierImages: MutableList<TierImage>,
     tiers: MutableList<TierItem>,
@@ -1126,12 +1116,12 @@ private fun PresetOverwriteConfirmDialog(
                                                 tiers = tiers,
                                                 tierImages = tierImages,
                                                 pendingImages = pendingImages,
-                                                cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                                                cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                                                customCropWidth = prefs.getInt("custom_crop_width", 0),
-                                                customCropHeight = prefs.getInt("custom_crop_height", 0),
-                                                useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                                                cropRatio = prefs.getFloat("crop_ratio", 1f)
+                                                cropPositionX = settingsService.cropPositionX,
+                                                cropPositionY = settingsService.cropPositionY,
+                                                customCropWidth = settingsService.customCropWidth,
+                                                customCropHeight = settingsService.customCropHeight,
+                                                useCustomCropSize = settingsService.useCustomCropSize,
+                                                cropRatio = settingsService.cropRatio
                                             )
                                         }
                                         withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1183,12 +1173,12 @@ private fun PresetOverwriteConfirmDialog(
                     tiers = tiers,
                     tierImages = tierImages,
                     pendingImages = pendingImages,
-                    cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                    cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                    customCropWidth = prefs.getInt("custom_crop_width", 0),
-                    customCropHeight = prefs.getInt("custom_crop_height", 0),
-                    useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                    cropRatio = prefs.getFloat("crop_ratio", 1f)
+                    cropPositionX = settingsService.cropPositionX,
+                    cropPositionY = settingsService.cropPositionY,
+                    customCropWidth = settingsService.customCropWidth,
+                    customCropHeight = settingsService.customCropHeight,
+                    useCustomCropSize = settingsService.useCustomCropSize,
+                    cropRatio = settingsService.cropRatio
                 )
                 presetManager.savePreset(dialogState.pendingPresetName, presetData)
 

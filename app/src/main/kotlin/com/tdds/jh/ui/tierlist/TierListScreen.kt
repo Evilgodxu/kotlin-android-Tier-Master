@@ -103,6 +103,8 @@ import com.tdds.jh.ui.tierlist.state.DialogState
 import com.tdds.jh.ui.tierlist.state.DialogHandlers
 import com.tdds.jh.ui.tierlist.components.PendingImagesSection
 import com.tdds.jh.ui.tierlist.model.PresetOperation
+import com.tdds.jh.ui.tierlist.model.TierListConfig
+import com.tdds.jh.ui.tierlist.service.SettingsService
 import com.tdds.jh.ui.tierlist.utils.saveBitmapToGallery
 import com.tdds.jh.ui.tierlist.utils.shareBitmap
 import com.tdds.jh.ui.tierlist.utils.saveTierListImage
@@ -293,29 +295,14 @@ fun TierListMakerApp(
         AppLogger.i("设备: ${Build.MANUFACTURER} ${Build.MODEL}")
     }
 
+    // 设置服务
+    val settingsService = remember { SettingsService(context) }
+
     // 默认梯度模板 - 根据语言选择
     val currentLocale = context.resources.configuration.locales[0]
     val isChinese = currentLocale.language == "zh"
-    
-    val defaultTiers = if (isChinese) {
-        // 中文本地化模板
-        listOf(
-            TierItem("夯", Color(0xFFFF6B6B)),
-            TierItem("顶级", Color(0xFFFFB347)),
-            TierItem("人上人", Color(0xFFFFFACD)),
-            TierItem("NPC", Color(0xFFB8E6B8)),
-            TierItem("拉完了", Color(0xFF87CEEB))
-        )
-    } else {
-        // 其他语言使用标准模板
-        listOf(
-            TierItem("S", Color(0xFFFF6B6B)),
-            TierItem("A", Color(0xFFFFB347)),
-            TierItem("B", Color(0xFFFFFACD)),
-            TierItem("C", Color(0xFFB8E6B8)),
-            TierItem("D", Color(0xFF87CEEB))
-        )
-    }
+
+    val defaultTiers = TierListConfig.getDefaultTiers(isChinese)
 
     // 当前梯度列表
     val tiers = remember { mutableStateListOf<TierItem>().apply { addAll(defaultTiers) } }
@@ -324,15 +311,14 @@ fun TierListMakerApp(
     val tierImages = remember { mutableStateListOf<TierImage>() }
 
     // 程序设置状态
-    val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-    var disableClickAdd by remember { mutableStateOf(prefs.getBoolean("disable_click_add", true)) }
+    var disableClickAdd by remember { mutableStateOf(settingsService.disableClickAdd) }
     // 调节浮显：水平偏移 0-300dp（默认125），垂直偏移 0-150dp（默认85）
-    var floatOffsetX by remember { mutableStateOf(prefs.getFloat("float_offset_x", 125f)) }
-    var floatOffsetY by remember { mutableStateOf(prefs.getFloat("float_offset_y", 85f)) }
+    var floatOffsetX by remember { mutableStateOf(settingsService.floatOffsetX) }
+    var floatOffsetY by remember { mutableStateOf(settingsService.floatOffsetY) }
     // 外置小图开关：启用时小图标显示在图片右侧
-    var externalBadgeEnabled by remember { mutableStateOf(prefs.getBoolean("external_badge_enabled", false)) }
+    var externalBadgeEnabled by remember { mutableStateOf(settingsService.externalBadgeEnabled) }
     // 下置命名开关：启用时图片命名显示在图片下方
-    var nameBelowImage by remember { mutableStateOf(prefs.getBoolean("name_below_image", false)) }
+    var nameBelowImage by remember { mutableStateOf(settingsService.nameBelowImage) }
 
     // 待添加的图片（允许重复URI，通过哈希查重实现文件复用）
     var pendingImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
@@ -353,22 +339,17 @@ fun TierListMakerApp(
     // 作者信息状态
     var authorName by remember { mutableStateOf("") }
 
-    // 语言设置状态 - 从 SharedPreferences 读取（复用上面定义的 prefs）
-    val savedLanguage = prefs.getString("language", "zh") ?: "zh"
-    // 检查是否需要显示首次启动的语言选择对话框
-    val shouldShowLanguageOnFirstLaunch = prefs.getBoolean("show_language_on_first_launch", true)
-    var currentLanguage by remember { mutableStateOf(savedLanguage) }
+    // 语言设置状态
+    val shouldShowLanguageOnFirstLaunch = settingsService.showLanguageOnFirstLaunch
+    var currentLanguage by remember { mutableStateOf(settingsService.currentLanguage) }
     var languageChanged by remember { mutableStateOf(false) }
 
     // 语言切换 - 使用 recreate 重启 Activity 来应用新语言
     LaunchedEffect(languageChanged) {
         if (languageChanged) {
             languageChanged = false
-            // 保存语言设置到 SharedPreferences
-            context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
-                .edit()
-                .putString("language", currentLanguage)
-                .apply()
+            // 保存语言设置
+            settingsService.saveLanguage(currentLanguage)
             // 重启 Activity 以应用新语言
             (context as ComponentActivity).recreate()
         }
@@ -477,14 +458,12 @@ fun TierListMakerApp(
                                     pendingImages = result.pendingImages
                                     tierListTitle = result.title
                                     authorName = result.author
-                                    prefs.edit()
-                                        .putFloat("crop_position_x", result.cropPositionX)
-                                        .putFloat("crop_position_y", result.cropPositionY)
-                                        .putInt("custom_crop_width", result.customCropWidth)
-                                        .putInt("custom_crop_height", result.customCropHeight)
-                                        .putBoolean("use_custom_crop_size", result.useCustomCropSize)
-                                        .putFloat("crop_ratio", result.cropRatio)
-                                        .apply()
+                                    settingsService.cropPositionX = result.cropPositionX
+                                    settingsService.cropPositionY = result.cropPositionY
+                                    settingsService.customCropWidth = result.customCropWidth
+                                    settingsService.customCropHeight = result.customCropHeight
+                                    settingsService.useCustomCropSize = result.useCustomCropSize
+                                    settingsService.cropRatio = result.cropRatio
                                     // 清理草稿文件（保留工作目录中的图片）
                                     presetManager.cleanupDraftOnly()
                                     showToastWithoutIcon(
@@ -620,14 +599,12 @@ fun TierListMakerApp(
                                     pendingImages = result.pendingImages
                                     tierListTitle = result.title
                                     authorName = result.author
-                                    prefs.edit()
-                                        .putFloat("crop_position_x", result.cropPositionX)
-                                        .putFloat("crop_position_y", result.cropPositionY)
-                                        .putInt("custom_crop_width", result.customCropWidth)
-                                        .putInt("custom_crop_height", result.customCropHeight)
-                                        .putBoolean("use_custom_crop_size", result.useCustomCropSize)
-                                        .putFloat("crop_ratio", result.cropRatio)
-                                        .apply()
+                                    settingsService.cropPositionX = result.cropPositionX
+                                    settingsService.cropPositionY = result.cropPositionY
+                                    settingsService.customCropWidth = result.customCropWidth
+                                    settingsService.customCropHeight = result.customCropHeight
+                                    settingsService.useCustomCropSize = result.useCustomCropSize
+                                    settingsService.cropRatio = result.cropRatio
                                     // 清理草稿文件（保留工作目录中的图片）
                                     presetManager.cleanupDraftOnly()
                                     showToastWithoutIcon(
@@ -763,12 +740,12 @@ fun TierListMakerApp(
                             tiers = tiers,
                             tierImages = tierImages,
                             pendingImages = pendingImages,
-                            cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                            cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                            customCropWidth = prefs.getInt("custom_crop_width", 0),
-                            customCropHeight = prefs.getInt("custom_crop_height", 0),
-                            useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                            cropRatio = prefs.getFloat("crop_ratio", 1f)
+                            cropPositionX = settingsService.cropPositionX,
+                            cropPositionY = settingsService.cropPositionY,
+                            customCropWidth = settingsService.customCropWidth,
+                            customCropHeight = settingsService.customCropHeight,
+                            useCustomCropSize = settingsService.useCustomCropSize,
+                            cropRatio = settingsService.cropRatio
                         )
                         presetManager.saveDraft(presetData)
                         AppLogger.i("双击退出时保存草稿: $tierListTitle")
@@ -843,16 +820,11 @@ fun TierListMakerApp(
                             tierListTitle = importResult.presetData.title
                             authorName = importResult.presetData.author
                             // 清理旧的裁剪设置并应用新的
-                            prefs.edit()
-                                .remove("crop_ratio")
-                                .remove("custom_crop_width")
-                                .remove("custom_crop_height")
-                                .remove("use_custom_crop_size")
-                                .putInt("custom_crop_width", result.customCropWidth)
-                                .putInt("custom_crop_height", result.customCropHeight)
-                                .putBoolean("use_custom_crop_size", result.useCustomCropSize)
-                                .putFloat("crop_ratio", result.cropRatio)
-                                .apply()
+                            settingsService.clearCropSettings()
+                            settingsService.customCropWidth = result.customCropWidth
+                            settingsService.customCropHeight = result.customCropHeight
+                            settingsService.useCustomCropSize = result.useCustomCropSize
+                            settingsService.cropRatio = result.cropRatio
                             // 清空层级位置信息,确保使用预设中的层级标签
                             tierRowPositions = emptyMap()
                             showToastWithoutIcon(context, context.getString(R.string.preset_import_success))
@@ -869,12 +841,12 @@ fun TierListMakerApp(
                                         tiers = tiers,
                                         tierImages = tierImages,
                                         pendingImages = pendingImages,
-                                        cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                                        cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                                        customCropWidth = prefs.getInt("custom_crop_width", 0),
-                                        customCropHeight = prefs.getInt("custom_crop_height", 0),
-                                        useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                                        cropRatio = prefs.getFloat("crop_ratio", 1f)
+                                        cropPositionX = settingsService.cropPositionX,
+                                        cropPositionY = settingsService.cropPositionY,
+                                        customCropWidth = settingsService.customCropWidth,
+                                        customCropHeight = settingsService.customCropHeight,
+                                        useCustomCropSize = settingsService.useCustomCropSize,
+                                        cropRatio = settingsService.cropRatio
                                     )
                                     presetManager.exportPreset(
                                         presetName = tierListTitle,
@@ -933,16 +905,11 @@ fun TierListMakerApp(
                             tierListTitle = importResult.presetData.title
                             authorName = importResult.presetData.author
                             // 清理旧的裁剪设置并应用新的
-                            prefs.edit()
-                                .remove("crop_ratio")
-                                .remove("custom_crop_width")
-                                .remove("custom_crop_height")
-                                .remove("use_custom_crop_size")
-                                .putInt("custom_crop_width", result.customCropWidth)
-                                .putInt("custom_crop_height", result.customCropHeight)
-                                .putBoolean("use_custom_crop_size", result.useCustomCropSize)
-                                .putFloat("crop_ratio", result.cropRatio)
-                                .apply()
+                            settingsService.clearCropSettings()
+                            settingsService.customCropWidth = result.customCropWidth
+                            settingsService.customCropHeight = result.customCropHeight
+                            settingsService.useCustomCropSize = result.useCustomCropSize
+                            settingsService.cropRatio = result.cropRatio
                             // 清空层级位置信息,确保使用预设中的层级标签
                             tierRowPositions = emptyMap()
                             showToastWithoutIcon(context, context.getString(R.string.preset_already_loaded))
@@ -988,12 +955,12 @@ fun TierListMakerApp(
                             tiers = tiers,
                             tierImages = tierImages,
                             pendingImages = pendingImages,
-                            cropPositionX = prefs.getFloat("crop_position_x", 0.5f),
-                            cropPositionY = prefs.getFloat("crop_position_y", 0.5f),
-                            customCropWidth = prefs.getInt("custom_crop_width", 0),
-                            customCropHeight = prefs.getInt("custom_crop_height", 0),
-                            useCustomCropSize = prefs.getBoolean("use_custom_crop_size", false),
-                            cropRatio = prefs.getFloat("crop_ratio", 1f)
+                            cropPositionX = settingsService.cropPositionX,
+                             cropPositionY = settingsService.cropPositionY,
+                            customCropWidth = settingsService.customCropWidth,
+                            customCropHeight = settingsService.customCropHeight,
+                            useCustomCropSize = settingsService.useCustomCropSize,
+                            cropRatio = settingsService.cropRatio
                         )
                     }
                     val outputFile = File(context.cacheDir, "${pendingPresetName}.tdds")
@@ -1447,7 +1414,7 @@ fun TierListMakerApp(
         if (shouldShowLanguageOnFirstLaunch) {
             dialogState.showLanguageDialog = true
             // 标记已显示过语言选择对话框
-            prefs.edit().putBoolean("show_language_on_first_launch", false).apply()
+            settingsService.showLanguageOnFirstLaunch = false
         }
         // 重置所有防重复点击状态（权限申请完成后，无论成功与否）
         dialogState.isBadgePickerLaunching = false
@@ -1464,7 +1431,7 @@ fun TierListMakerApp(
             if (shouldShowLanguageOnFirstLaunch) {
                 dialogState.showLanguageDialog = true
                 // 标记已显示过语言选择对话框
-                prefs.edit().putBoolean("show_language_on_first_launch", false).apply()
+                settingsService.showLanguageOnFirstLaunch = false
             }
         }
     }
@@ -1475,7 +1442,7 @@ fun TierListMakerApp(
             context = context,
             dialogState = dialogState,
             scope = scope,
-            prefs = prefs,
+            settingsService = settingsService,
             presetManager = presetManager,
             tierImages = tierImages,
             onTierImagesChange = { /* tierImages 是 mutableStateList，变更会自动触发重组 */ },
@@ -1630,16 +1597,11 @@ fun TierListMakerApp(
                             tierListTitle = result.title
                             authorName = result.author
                             // 清理旧的裁剪设置并应用新的
-                            prefs.edit()
-                                .remove("crop_ratio")
-                                .remove("custom_crop_width")
-                                .remove("custom_crop_height")
-                                .remove("use_custom_crop_size")
-                                .putInt("custom_crop_width", result.customCropWidth)
-                                .putInt("custom_crop_height", result.customCropHeight)
-                                .putBoolean("use_custom_crop_size", result.useCustomCropSize)
-                                .putFloat("crop_ratio", result.cropRatio)
-                                .apply()
+                            settingsService.clearCropSettings()
+                            settingsService.customCropWidth = result.customCropWidth
+                            settingsService.customCropHeight = result.customCropHeight
+                            settingsService.useCustomCropSize = result.useCustomCropSize
+                            settingsService.cropRatio = result.cropRatio
                             // 清空层级位置信息,确保使用草稿中的层级标签
                             tierRowPositions = emptyMap()
                             dialogState.showDraftLoadingDialog = false
@@ -1809,12 +1771,7 @@ fun TierListMakerApp(
                         // 清空层级位置信息,确保使用默认模板的层级标签
                         tierRowPositions = emptyMap()
                         // 清理裁剪设置
-                        prefs.edit()
-                            .remove("crop_ratio")
-                            .remove("custom_crop_width")
-                            .remove("custom_crop_height")
-                            .remove("use_custom_crop_size")
-                            .apply()
+                        settingsService.clearCropSettings()
 
                         // 将层级图片添加到待分级区域（原样返回所有图片，包括重复的）
                         if (imagesToReturn.isNotEmpty()) {
@@ -2214,7 +2171,7 @@ fun TierListMakerApp(
             handlers = dialogHandlers,
             context = context,
             scope = scope,
-            prefs = prefs,
+            settingsService = settingsService,
             presetManager = presetManager,
             tierImages = tierImages,
             tiers = tiers,
