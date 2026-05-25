@@ -1,4 +1,4 @@
-package com.tdds.jh
+package com.tdds.jh.manager
 
 import android.app.ActivityManager
 import android.content.Context
