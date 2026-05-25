@@ -459,6 +459,12 @@ class DialogHandlers(
 
     fun onPresetNameDialogDismiss() {
         dialogState.showPresetNameDialog = false
+        // 如果是导入时新建预设流程被取消，清理相关状态
+        if (dialogState.isImportCreatingNewPreset) {
+            dialogState.isImportCreatingNewPreset = false
+            dialogState.pendingImportResult?.presetFile?.delete()
+            dialogState.pendingImportResult = null
+        }
     }
 
     fun onPresetNameConfirm(name: String, onLaunchExport: () -> Unit) {
@@ -493,6 +499,13 @@ class DialogHandlers(
         dialogState.showImportOverwriteDialog = false
         dialogState.pendingImportResult?.presetFile?.delete()
         dialogState.pendingImportResult = null
+        dialogState.isImportCreatingNewPreset = false
+    }
+
+    fun onImportCreateNewPreset() {
+        dialogState.showImportOverwriteDialog = false
+        dialogState.isImportCreatingNewPreset = true
+        dialogState.showPresetNameDialog = true
     }
 
     // ==================== 预设列表对话框处理器 ====================

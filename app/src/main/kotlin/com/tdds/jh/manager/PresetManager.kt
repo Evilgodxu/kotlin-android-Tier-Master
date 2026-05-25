@@ -775,6 +775,54 @@ class PresetManager(private val context: Context) {
         AppLogger.i("覆盖预设成功: ${presetFile.absolutePath}")
         presetFile
     }
+
+    /**
+     * 保存导入的预设为新名称
+     * 复制源文件内容，但修改配置文件中的标题
+     * @param sourceFile 源预设文件
+     * @param newName 新预设名称
+     * @return 保存的文件
+     */
+    suspend fun saveImportedPresetAsNew(
+        sourceFile: File,
+        newName: String
+    ): File = withContext(Dispatchers.IO) {
+        // 读取源文件配置
+        val presetData = readPresetConfig(sourceFile)
+            ?: throw IllegalStateException("源预设文件损坏")
+
+        // 创建新的预设数据，使用新名称
+        val newPresetData = presetData.copy(title = newName)
+        val sanitizedName = sanitizeFileName(newName)
+        val presetFile = File(presetsDir, "$sanitizedName$PRESET_EXTENSION")
+
+        // 创建新的ZIP文件，复制源文件内容但更新配置
+        ZipOutputStream(FileOutputStream(presetFile)).use { zipOut ->
+            // 写入更新后的配置文件
+            val configJson = presetDataToJson(newPresetData)
+            zipOut.putNextEntry(ZipEntry(CONFIG_FILE_NAME))
+            zipOut.write(configJson.toString().toByteArray())
+            zipOut.closeEntry()
+
+            // 复制源文件中的其他条目（图片等）
+            ZipInputStream(FileInputStream(sourceFile)).use { zipIn ->
+                var entry: ZipEntry?
+                while (zipIn.nextEntry.also { entry = it } != null) {
+                    entry?.let {
+                        if (it.name != CONFIG_FILE_NAME) {
+                            zipOut.putNextEntry(ZipEntry(it.name))
+                            zipIn.copyTo(zipOut)
+                            zipOut.closeEntry()
+                        }
+                    }
+                    zipIn.closeEntry()
+                }
+            }
+        }
+
+        AppLogger.i("保存导入预设为新名称成功: ${presetFile.absolutePath}")
+        presetFile
+    }
     
     /**
      * 根据标题查找预设（快速检查）

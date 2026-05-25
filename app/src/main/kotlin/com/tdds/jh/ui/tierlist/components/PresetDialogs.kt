@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -390,31 +393,75 @@ fun PresetListDialog(
 
 /**
  * 导入预设覆盖确认对话框
+ * 复用保存预设的交互逻辑，提供"覆盖"和"新建预设"选项
  */
 @Composable
 fun ImportOverwriteDialog(
     presetName: String,
     onDismiss: () -> Unit,
-    onOverwrite: () -> Unit
+    onOverwrite: () -> Unit,
+    onCreateNew: () -> Unit
 ) {
     val extendedColors = LocalExtendedColors.current
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = extendedColors.cardBackground,
-        title = { Text(stringResource(R.string.preset_already_exists)) },
-        text = { Text(stringResource(R.string.preset_overwrite_confirm, presetName)) },
-        confirmButton = {
-            TextButton(onClick = onOverwrite) {
-                Text(stringResource(R.string.overwrite))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .padding(16.dp),
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = extendedColors.cardBackground
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(vertical = 20.dp, horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.preset_name_exists),
+                    fontSize = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = stringResource(R.string.preset_name_exists_message, presetName),
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onOverwrite,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = extendedColors.buttonContainer,
+                            contentColor = extendedColors.buttonContent
+                        )
+                    ) {
+                        Text(stringResource(R.string.overwrite))
+                    }
+
+                    OutlinedButton(
+                        onClick = onCreateNew,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.create_new_preset))
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 

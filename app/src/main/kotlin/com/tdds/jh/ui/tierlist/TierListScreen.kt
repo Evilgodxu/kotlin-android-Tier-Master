@@ -385,9 +385,6 @@ fun TierListMakerApp(
     var isSavingPreset by remember { mutableStateOf(false) }
     var presetOperation by remember { mutableStateOf<PresetOperation?>(null) }
 
-    // 导入预设覆盖确认状态
-    var pendingImportResult by remember { mutableStateOf<PresetManager.ImportResult?>(null) }
-
     // 草稿恢复状态
     // 只存储草稿配置数据，不解压图片，等待用户确认后再解压
     var draftConfigData by remember { mutableStateOf<PresetData?>(null) }
@@ -474,7 +471,7 @@ fun TierListMakerApp(
                                     AppLogger.i("外部打开 .tdds 文件并应用预设成功: ${result.title}")
                                 }
                                 PresetManager.ImportStatus.NEEDS_OVERWRITE -> {
-                                    pendingImportResult = importResult
+                                    dialogState.pendingImportResult = importResult
                                     dialogState.showImportOverwriteDialog = true
                                     AppLogger.i("外部打开 .tdds 文件需要覆盖确认")
                                 }
@@ -615,7 +612,7 @@ fun TierListMakerApp(
                                     AppLogger.i("外部分享打开 .tdds 文件并应用预设成功: ${result.title}")
                                 }
                                 PresetManager.ImportStatus.NEEDS_OVERWRITE -> {
-                                    pendingImportResult = importResult
+                                    dialogState.pendingImportResult = importResult
                                     dialogState.showImportOverwriteDialog = true
                                     AppLogger.i("外部分享打开 .tdds 文件需要覆盖确认")
                                 }
@@ -863,7 +860,7 @@ fun TierListMakerApp(
                         PresetManager.ImportStatus.NEEDS_OVERWRITE -> {
                             // 需要询问是否覆盖
                             isImportingPreset = false
-                            pendingImportResult = importResult
+                            dialogState.pendingImportResult = importResult
                             dialogState.showImportOverwriteDialog = true
                             AppLogger.i("导入预设需要覆盖确认: ${importResult.presetData.title}")
                         }

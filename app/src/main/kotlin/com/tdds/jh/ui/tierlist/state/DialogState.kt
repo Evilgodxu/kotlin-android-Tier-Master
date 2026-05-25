@@ -72,6 +72,8 @@ class DialogState {
     var presetOperation by mutableStateOf<PresetOperation?>(null)
     var pendingPresetName by mutableStateOf("")
     var pendingImportResult by mutableStateOf<PresetManager.ImportResult?>(null)
+    // 导入预设时选择新建预设的标志，用于区分保存和导入流程
+    var isImportCreatingNewPreset by mutableStateOf(false)
 
     // ==================== 图片预览对话框 ====================
     var showPreviewDialog by mutableStateOf(false)
@@ -134,6 +136,7 @@ class DialogState {
         showPresetOverwriteConfirmDialog = false
         showImportOverwriteDialog = false
         showPreviewDialog = false
+        isImportCreatingNewPreset = false
     }
 
     /**

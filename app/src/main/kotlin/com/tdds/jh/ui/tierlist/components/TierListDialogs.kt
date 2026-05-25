@@ -488,12 +488,41 @@ fun TierListDialogs(
 
     // ==================== 预设名称输入对话框 ====================
     if (dialogState.showPresetNameDialog) {
+        // 根据是否是导入时新建预设，决定默认名称
+        val defaultName = when {
+            dialogState.isImportCreatingNewPreset && dialogState.pendingImportResult != null -> {
+                // 导入时新建预设，使用导入预设的标题作为默认值
+                dialogState.pendingImportResult?.presetData?.title ?: ""
+            }
+            tierListTitle == context.getString(R.string.default_title) -> ""
+            else -> tierListTitle
+        }
         PresetNameDialog(
-            defaultName = if (tierListTitle == context.getString(R.string.default_title)) "" else tierListTitle,
+            defaultName = defaultName,
             onDismiss = handlers::onPresetNameDialogDismiss,
             onConfirm = { name ->
-                handlers.onPresetNameConfirm(name) {
-                    presetExportLauncher.launch("$name.tdds")
+                if (dialogState.isImportCreatingNewPreset) {
+                    // 导入时新建预设：使用新名称导入并应用预设
+                    handleImportWithNewName(
+                        dialogState = dialogState,
+                        newName = name,
+                        context = context,
+                        scope = scope,
+                        settingsService = settingsService,
+                        presetManager = presetManager,
+                        tierImages = tierImages,
+                        tiers = tiers,
+                        onTierImagesChange = onTierImagesChange,
+                        onTiersChange = onTiersChange,
+                        onPendingImagesChange = onPendingImagesChange,
+                        onTitleChange = onTitleChange,
+                        onAuthorChange = onAuthorChange,
+                        onTierRowPositionsChange = onTierRowPositionsChange
+                    )
+                } else {
+                    handlers.onPresetNameConfirm(name) {
+                        presetExportLauncher.launch("$name.tdds")
+                    }
                 }
             }
         )
@@ -542,7 +571,8 @@ fun TierListDialogs(
                     onAuthorChange = onAuthorChange,
                     onTierRowPositionsChange = onTierRowPositionsChange
                 )
-            }
+            },
+            onCreateNew = handlers::onImportCreateNewPreset
         )
     }
 
@@ -967,6 +997,107 @@ private fun handleImportOverwrite(
                     context.getString(R.string.preset_overwrite_failed, e.message),
                     android.widget.Toast.LENGTH_LONG
                 )
+            }
+        }
+    }
+}
+
+/**
+ * 处理导入预设时使用新名称的情况
+ * 将预设以新名称保存并应用
+ */
+private fun handleImportWithNewName(
+    dialogState: DialogState,
+    newName: String,
+    context: Context,
+    scope: CoroutineScope,
+    settingsService: SettingsService,
+    presetManager: PresetManager,
+    tierImages: MutableList<TierImage>,
+    tiers: MutableList<TierItem>,
+    onTierImagesChange: () -> Unit,
+    onTiersChange: () -> Unit,
+    onPendingImagesChange: (List<Uri>) -> Unit,
+    onTitleChange: (String) -> Unit,
+    onAuthorChange: (String) -> Unit,
+    onTierRowPositionsChange: (Map<String, android.graphics.Rect>) -> Unit
+) {
+    val importResult = dialogState.pendingImportResult
+    dialogState.showPresetNameDialog = false
+    dialogState.isImportCreatingNewPreset = false
+    dialogState.isImportingPreset = true
+
+    importResult?.let { result ->
+        scope.launch {
+            try {
+                // 使用新名称保存预设：复制文件内容但更新标题
+                // 如果名称已存在，saveImportedPresetAsNew 会覆盖现有文件
+                val newPresetFile = presetManager.saveImportedPresetAsNew(
+                    result.presetFile,
+                    newName
+                )
+
+                // 应用预设
+                val applyResult = presetManager.applyPreset(newPresetFile)
+
+                tiers.clear()
+                tiers.addAll(applyResult.tiers.map { tierData ->
+                    TierItem(tierData.label, try {
+                        androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor("#${tierData.color}"))
+                    } catch (e: Exception) { androidx.compose.ui.graphics.Color.Gray })
+                })
+                onTiersChange()
+
+                tierImages.clear()
+                tierImages.addAll(applyResult.tierImages.map { appliedImage ->
+                    TierImage(
+                        id = appliedImage.id,
+                        tierLabel = appliedImage.tierLabel,
+                        uri = appliedImage.uri,
+                        name = appliedImage.name,
+                        badgeUri = appliedImage.badgeUri,
+                        badgeUri2 = appliedImage.badgeUri2,
+                        badgeUri3 = appliedImage.badgeUri3,
+                        originalUri = appliedImage.originalUri,
+                        cropPositionX = appliedImage.cropPositionX,
+                        cropPositionY = appliedImage.cropPositionY,
+                        cropScale = appliedImage.cropScale,
+                        isCropped = appliedImage.isCropped,
+                        cropRatio = appliedImage.cropRatio,
+                        useCustomCrop = appliedImage.useCustomCrop,
+                        customCropWidth = appliedImage.customCropWidth,
+                        customCropHeight = appliedImage.customCropHeight
+                    )
+                })
+                onTierImagesChange()
+
+                onPendingImagesChange(applyResult.pendingImages)
+                onTitleChange(newName)
+                onAuthorChange(result.presetData.author)
+
+                settingsService.clearCropSettings()
+                settingsService.customCropWidth = applyResult.customCropWidth
+                settingsService.customCropHeight = applyResult.customCropHeight
+                settingsService.useCustomCropSize = applyResult.useCustomCropSize
+                settingsService.cropRatio = applyResult.cropRatio
+
+                onTierRowPositionsChange(emptyMap())
+
+                showToastWithoutIcon(context, context.getString(R.string.preset_import_success))
+                AppLogger.i("以新名称导入并加载预设成功: $newName")
+
+                // 清理临时文件
+                result.presetFile.delete()
+                dialogState.pendingImportResult = null
+            } catch (e: Exception) {
+                AppLogger.e("以新名称导入预设失败", e)
+                showToastWithoutIcon(
+                    context,
+                    context.getString(R.string.preset_import_failed, e.message),
+                    android.widget.Toast.LENGTH_LONG
+                )
+            } finally {
+                dialogState.isImportingPreset = false
             }
         }
     }
