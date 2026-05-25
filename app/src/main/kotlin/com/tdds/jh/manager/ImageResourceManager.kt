@@ -2,7 +2,7 @@ package com.tdds.jh.manager
 
 import android.content.Context
 import android.net.Uri
-import com.tdds.jh.AppLogger
+import com.tdds.jh.manager.AppLogger
 import com.tdds.jh.util.WebPConverter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

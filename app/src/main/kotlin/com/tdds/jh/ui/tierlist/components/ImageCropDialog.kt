@@ -47,8 +47,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.R
 import com.tdds.jh.ui.theme.LocalExtendedColors
 import java.io.File

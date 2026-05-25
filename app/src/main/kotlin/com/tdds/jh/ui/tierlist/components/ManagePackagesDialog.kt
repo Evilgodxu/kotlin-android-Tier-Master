@@ -40,8 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.R
 import com.tdds.jh.manager.ImageResourceManager
 import com.tdds.jh.resource.ImportTarget

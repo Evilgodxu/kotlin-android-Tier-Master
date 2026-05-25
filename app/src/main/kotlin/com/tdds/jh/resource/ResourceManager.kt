@@ -10,8 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

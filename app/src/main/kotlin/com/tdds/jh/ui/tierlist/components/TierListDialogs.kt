@@ -34,9 +34,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetData
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetData
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.R
 import com.tdds.jh.bitmap.TierImage
 import com.tdds.jh.bitmap.TierItem
@@ -1104,7 +1104,7 @@ private fun handleImportWithNewName(
 }
 
 private fun handleApplyPreset(
-    presetInfo: com.tdds.jh.PresetInfo,
+    presetInfo: com.tdds.jh.manager.PresetInfo,
     presetManager: PresetManager,
     tiers: MutableList<TierItem>,
     tierImages: MutableList<TierImage>,

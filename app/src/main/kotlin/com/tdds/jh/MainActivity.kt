@@ -11,8 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.resource.ResourceManager
 import com.tdds.jh.ui.theme.MyApplicationTheme
 import com.tdds.jh.ui.theme.ThemeManager

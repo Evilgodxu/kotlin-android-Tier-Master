@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tdds.jh.AppLogger
+import com.tdds.jh.manager.AppLogger
 import com.tdds.jh.R
 import com.tdds.jh.ui.theme.LocalExtendedColors
 

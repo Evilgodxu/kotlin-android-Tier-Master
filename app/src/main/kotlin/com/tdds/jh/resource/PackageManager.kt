@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import com.tdds.jh.AppLogger
+import com.tdds.jh.manager.AppLogger
 import com.tdds.jh.manager.ImageResourceManager
 import com.tdds.jh.util.WebPConverter
 import kotlinx.coroutines.Dispatchers

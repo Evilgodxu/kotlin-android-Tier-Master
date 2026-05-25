@@ -16,7 +16,7 @@ import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.res.ResourcesCompat
-import com.tdds.jh.AppLogger
+import com.tdds.jh.manager.AppLogger
 import com.tdds.jh.R
 import com.tdds.jh.domain.utils.ColorUtils
 import com.tdds.jh.domain.utils.TextUtils

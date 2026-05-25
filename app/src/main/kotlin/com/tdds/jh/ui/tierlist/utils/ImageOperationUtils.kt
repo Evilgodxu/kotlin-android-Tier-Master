@@ -2,7 +2,7 @@ package com.tdds.jh.ui.tierlist.utils
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.tdds.jh.bitmap.TierImage
-import com.tdds.jh.AppLogger
+import com.tdds.jh.manager.AppLogger
 
 /**
  * 图片操作工具类

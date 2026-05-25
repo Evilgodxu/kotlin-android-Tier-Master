@@ -6,8 +6,8 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.bitmap.TierImage
 import com.tdds.jh.ui.tierlist.model.PresetOperation
 import com.tdds.jh.ui.tierlist.service.SettingsService

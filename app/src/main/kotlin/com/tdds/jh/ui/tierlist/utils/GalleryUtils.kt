@@ -7,7 +7,7 @@ import android.graphics.Bitmap
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
-import com.tdds.jh.AppLogger
+import com.tdds.jh.manager.AppLogger
 import com.tdds.jh.R
 import com.tdds.jh.bitmap.TierImage
 import com.tdds.jh.bitmap.TierItem

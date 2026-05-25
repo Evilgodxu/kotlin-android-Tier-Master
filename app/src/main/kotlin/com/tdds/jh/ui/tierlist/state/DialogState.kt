@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import com.tdds.jh.bitmap.TierImage
 import com.tdds.jh.bitmap.TierItem
 import com.tdds.jh.resource.PackageItem
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.ui.tierlist.model.PresetOperation
 
 /**

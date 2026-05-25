@@ -38,9 +38,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetInfo
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetInfo
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.R
 import com.tdds.jh.ui.theme.LocalExtendedColors
 import kotlinx.coroutines.launch

@@ -53,9 +53,9 @@ import com.tdds.jh.resource.PackageItem
 import com.tdds.jh.resource.ImportTarget
 import com.tdds.jh.resource.ZipPasswordRequiredException
 import com.tdds.jh.manager.ImageResourceManager
-import com.tdds.jh.AppLogger
-import com.tdds.jh.PresetManager
-import com.tdds.jh.PresetData
+import com.tdds.jh.manager.AppLogger
+import com.tdds.jh.manager.PresetManager
+import com.tdds.jh.manager.PresetData
 import com.tdds.jh.ui.tierlist.components.ManagePresetsDialog
 import com.tdds.jh.ui.tierlist.components.PresetNameDialog
 import com.tdds.jh.ui.tierlist.components.PresetListDialog

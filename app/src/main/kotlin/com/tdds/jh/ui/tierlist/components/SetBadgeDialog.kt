@@ -58,7 +58,7 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import com.tdds.jh.PresetManager
+import com.tdds.jh.manager.PresetManager
 import com.tdds.jh.R
 import com.tdds.jh.ui.theme.LocalExtendedColors
 import kotlin.math.roundToInt
