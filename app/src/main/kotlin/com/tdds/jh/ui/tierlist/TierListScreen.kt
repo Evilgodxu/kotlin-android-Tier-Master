@@ -249,7 +249,6 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.request.CachePolicy
 import com.tdds.jh.ui.theme.MyApplicationTheme
-import com.tdds.jh.ui.toast.ToastHost
 import com.tdds.jh.ui.toast.showToastWithoutIcon
 import com.tdds.jh.domain.utils.ColorUtils
 import com.tdds.jh.domain.utils.FileUtils
@@ -1502,8 +1501,6 @@ fun TierListMakerApp(
             LoadingDialog(message = stringResource(R.string.loading_resources))
         }
 
-        // Toast宿主 - 显示全局Toast提示（使用Popup确保在最上层，覆盖对话框）
-        ToastHost(isDarkTheme = isDarkTheme)
     }
 }
 

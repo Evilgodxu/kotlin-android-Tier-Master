@@ -5,18 +5,17 @@ import android.widget.Toast
 
 /**
  * Toast扩展函数
- * 提供便捷的Toast调用接口,保持向后兼容性
+ * 提供便捷的原生Toast调用接口
  */
 
 /**
- * 显示Toast提示 (兼容旧代码)
- * 使用新的Toast系统,但保持相同的函数签名
- * @param context 上下文 (已废弃,保持兼容性)
+ * 显示Toast提示
+ * @param context 上下文
  * @param message 提示消息
- * @param duration 显示时长 (已废弃,统一使用2秒)
+ * @param duration 显示时长
  */
 fun showToastWithoutIcon(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
-    ToastManager.show(message)
+    Toast.makeText(context, message, duration).show()
 }
 
 /**
@@ -25,7 +24,7 @@ fun showToastWithoutIcon(context: Context, message: String, duration: Int = Toas
  * @param message 成功消息
  */
 fun Context.showSuccessToast(message: String) {
-    ToastManager.showSuccess(message)
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }
 
 /**
@@ -34,7 +33,7 @@ fun Context.showSuccessToast(message: String) {
  * @param message 警告消息
  */
 fun Context.showWarningToast(message: String) {
-    ToastManager.showWarning(message)
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }
 
 /**
@@ -43,7 +42,7 @@ fun Context.showWarningToast(message: String) {
  * @param message 错误消息
  */
 fun Context.showErrorToast(message: String) {
-    ToastManager.showError(message)
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }
 
 /**
@@ -52,5 +51,5 @@ fun Context.showErrorToast(message: String) {
  * @param message 信息消息
  */
 fun Context.showInfoToast(message: String) {
-    ToastManager.show(message)
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }
