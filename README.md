@@ -1,6 +1,6 @@
 # Tier-Master (梯度大师)
 
-一款专业的梯度表/排行榜生成工具，基于 Jetpack Compose 与 Material3 构建，支持批量图片管理、自定义层级、主题切换等功能。
+一款专业的梯度表/排行榜编辑工具，基于 Jetpack Compose 与 Material3 构建，支持批量图片管理、自定义层级、主题切换等功能。
 
 ## 应用预览
 
@@ -115,6 +115,20 @@
 | targetSdk | 36 |
 | NDK | arm64-v8a |
 | Java | 21 |
+
+## 签名配置
+
+构建 Release 版本需要配置签名密钥。在项目根目录创建 `local.properties` 文件并添加以下配置：
+
+```properties
+KEYSTORE_PASSWORD=your_keystore_password
+KEY_ALIAS=your_key_alias
+KEY_PASSWORD=your_key_password
+```
+
+同时确保密钥库文件 `your_key.keystore` 位于项目根目录。如果密钥库文件名或路径不同，请修改 `app/build.gradle.kts` 中的 `storeFile` 配置。
+
+**注意**：`local.properties` 和密钥库文件已添加到 `.gitignore`，不会被提交到版本控制。
 
 ## 支持语言
 
