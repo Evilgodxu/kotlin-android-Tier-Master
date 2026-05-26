@@ -72,6 +72,7 @@ fun PendingImagesSection(
     val pendingSectionHeight = (imageSize.value * 0.8f + 8f).dp
     // 拖动状态
     var isDragging by remember { mutableStateOf(false) }
+    var draggedIndex by remember { mutableStateOf<Int?>(null) }
     var draggedUri by remember { mutableStateOf<Uri?>(null) }
     var dragPosition by remember { mutableStateOf(Offset.Zero) }
     var currentDropTarget by remember { mutableStateOf<String?>(null) }
@@ -153,14 +154,15 @@ fun PendingImagesSection(
                 LazyRow(
                     modifier = Modifier.height(pendingSectionHeight)
                 ) {
-                    itemsIndexed(images, key = { index, uri -> "${index}_${uri}" }) { index, uri ->
+                    itemsIndexed(images, key = { index, uri -> "${index}_${uri}_${uri.hashCode()}" }) { index, uri ->
                         DraggablePendingImageItem(
                             uri = uri,
-                            isDragging = isDragging && draggedUri == uri,
+                            isDragging = isDragging && draggedIndex == index,
                             tiers = tiers,
                             tierRowPositions = tierRowPositions,
                             onDragStart = { uriItem, initialCenter ->
                                 isDragging = true
+                                draggedIndex = index
                                 draggedUri = uriItem
                                 dragPosition = initialCenter
                                 onDragStart(uriItem)
@@ -177,6 +179,7 @@ fun PendingImagesSection(
                                     }
                                 }
                                 isDragging = false
+                                draggedIndex = null
                                 draggedUri = null
                                 dragPosition = Offset.Zero
                                 currentDropTarget = null

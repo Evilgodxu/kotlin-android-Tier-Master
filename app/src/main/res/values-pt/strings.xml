@@ -5,8 +5,6 @@
     <string name="save">Salvar</string>
     <string name="reset">Redefinir</string>
     <string name="reset_success">Redefinido</string>
-    <string name="delete_tier">Excluir nível</string>
-    <string name="delete_tier_confirm">Excluir nível %1$s? Imagens voltam.</string>
     <string name="delete">Excluir</string>
     <string name="cancel">Cancelar</string>
     <string name="clear">Limpar</string>

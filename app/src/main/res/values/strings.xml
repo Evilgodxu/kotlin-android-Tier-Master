@@ -4,8 +4,6 @@
     <string name="save">保存</string>
     <string name="reset">重置</string>
     <string name="reset_success">已重置</string>
-    <string name="delete_tier">删除层级</string>
-    <string name="delete_tier_confirm">确定要删除层级 %1$s 吗?该层级中的所有图片将返回待分级区域.</string>
     <string name="delete">删除</string>
     <string name="cancel">取消</string>
     <string name="clear">清空</string>

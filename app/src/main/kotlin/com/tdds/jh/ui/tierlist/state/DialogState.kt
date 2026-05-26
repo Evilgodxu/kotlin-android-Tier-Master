@@ -46,8 +46,6 @@ class DialogState {
     var editingTier by mutableStateOf<TierItem?>(null)
     var showEditNameDialog by mutableStateOf(false)
     var showColorPickerDialog by mutableStateOf(false)
-    var showDeleteTierDialog by mutableStateOf(false)
-    var tierToDelete by mutableStateOf<TierItem?>(null)
 
     // ==================== 图片操作对话框 ====================
     var selectedImageForAction by mutableStateOf<TierImage?>(null)
@@ -123,7 +121,6 @@ class DialogState {
         showLanguageDialog = false
         showEditNameDialog = false
         showColorPickerDialog = false
-        showDeleteTierDialog = false
         showImageActionDialog = false
         showImageViewDialog = false
         showCropDialog = false
@@ -173,14 +170,6 @@ class DialogState {
     fun showTierColorPicker(tier: TierItem) {
         editingTier = tier
         showColorPickerDialog = true
-    }
-
-    /**
-     * 显示删除层级确认对话框
-     */
-    fun showDeleteTier(tier: TierItem) {
-        tierToDelete = tier
-        showDeleteTierDialog = true
     }
 
     /**

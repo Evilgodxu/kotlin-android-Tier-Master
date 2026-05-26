@@ -6,8 +6,6 @@
     <string name="save">Enregistrer</string>
     <string name="reset">Reinitialiser</string>
     <string name="reset_success">Reinitialise</string>
-    <string name="delete_tier">Suppr niveau</string>
-    <string name="delete_tier_confirm">Suppr niveau %1$s ? Images retourn.</string>
     <string name="delete">Supprimer</string>
     <string name="cancel">Annuler</string>
     <string name="clear">Effacer</string>

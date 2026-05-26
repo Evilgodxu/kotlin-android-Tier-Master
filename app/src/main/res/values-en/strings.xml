@@ -5,8 +5,6 @@
     <string name="save">Save</string>
     <string name="reset">Reset</string>
     <string name="reset_success">Done</string>
-    <string name="delete_tier">Del Tier</string>
-    <string name="delete_tier_confirm">Del %1$s? Images return.</string>
     <string name="delete">Delete</string>
     <string name="cancel">Cancel</string>
     <string name="clear">Clear</string>

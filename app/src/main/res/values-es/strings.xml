@@ -5,8 +5,6 @@
     <string name="save">Guardar</string>
     <string name="reset">Restablecer</string>
     <string name="reset_success">Restablecido</string>
-    <string name="delete_tier">Eliminar nivel</string>
-    <string name="delete_tier_confirm">¿Eliminar nivel %1$s? Imág. vuelven.</string>
     <string name="delete">Eliminar</string>
     <string name="cancel">Cancelar</string>
     <string name="clear">Borrar</string>

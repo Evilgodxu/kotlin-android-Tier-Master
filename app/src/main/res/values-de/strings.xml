@@ -5,8 +5,6 @@
     <string name="save">Speichern</string>
     <string name="reset">Zurücksetzen</string>
     <string name="reset_success">Zurückges.</string>
-    <string name="delete_tier">Stufe lösch.</string>
-    <string name="delete_tier_confirm">%1$s lösch.? Bilder zurück.</string>
     <string name="delete">Löschen</string>
     <string name="cancel">Abbrechen</string>
     <string name="clear">Löschen</string>

@@ -514,40 +514,6 @@ class DialogHandlers(
         dialogState.showPresetListDialog = false
     }
 
-    // ==================== 删除层级对话框处理器 ====================
-
-    fun onDeleteTierDismiss() {
-        dialogState.showDeleteTierDialog = false
-    }
-
-    fun onDeleteTierConfirm(
-        tiers: MutableList<com.tdds.jh.bitmap.TierItem>,
-        pendingImages: List<Uri>,
-        onPendingImagesChange: (List<Uri>) -> Unit,
-        onTierRowPositionsChange: (Map<String, android.graphics.Rect>) -> Unit,
-        tierRowPositions: Map<String, android.graphics.Rect>
-    ) {
-        dialogState.tierToDelete?.let { tier ->
-            val index = tiers.indexOfFirst { it.label == tier.label }
-            if (index != -1) {
-                val imagesToReturn = tierImages.filter { it.tierLabel == tier.label }
-                val newPendingImages = imagesToReturn.map { it.originalUri ?: it.uri }
-                    .filter { it !in pendingImages }
-                if (newPendingImages.isNotEmpty()) {
-                    onPendingImagesChange(pendingImages + newPendingImages)
-                }
-                val returnedCount = newPendingImages.size
-                val deletedCount = imagesToReturn.size
-                tiers.removeAt(index)
-                tierImages.removeAll { it.tierLabel == tier.label }
-                onTierRowPositionsChange(tierRowPositions - tier.label)
-                AppLogger.i("删除层级 - 层级: ${tier.label}, 删除图片: ${deletedCount}张, 返回待放置区: ${returnedCount}张")
-            }
-        }
-        dialogState.showDeleteTierDialog = false
-        dialogState.tierToDelete = null
-    }
-
     // ==================== 图片预览对话框处理器 ====================
 
     fun onPreviewDismiss() {

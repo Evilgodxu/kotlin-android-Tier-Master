@@ -604,32 +604,63 @@ fun TierListDialogs(
         )
     }
 
-    // ==================== 删除层级确认对话框 ====================
-    if (dialogState.showDeleteTierDialog && dialogState.tierToDelete != null) {
-        AlertDialog(
-            onDismissRequest = handlers::onDeleteTierDismiss,
-            containerColor = extendedColors.cardBackground,
-            title = { Text(stringResource(R.string.delete_tier)) },
-            text = { Text(stringResource(R.string.delete_tier_confirm, dialogState.tierToDelete!!.label)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        handlers.onDeleteTierConfirm(
-                            tiers = tiers,
-                            pendingImages = pendingImages,
-                            onPendingImagesChange = onPendingImagesChange,
-                            onTierRowPositionsChange = onTierRowPositionsChange,
-                            tierRowPositions = tierRowPositions
-                        )
-                    }
-                ) {
-                    Text(stringResource(R.string.delete), color = Color.Red)
-                }
+    // ==================== 编辑层级名称对话框 ====================
+    if (dialogState.showEditNameDialog && dialogState.editingTier != null) {
+        EditTierNameDialog(
+            currentName = dialogState.editingTier!!.label,
+            existingNames = tiers.map { it.label },
+            onDismiss = {
+                dialogState.showEditNameDialog = false
+                dialogState.editingTier = null
             },
-            dismissButton = {
-                TextButton(onClick = handlers::onDeleteTierDismiss) {
-                    Text(stringResource(R.string.cancel))
+            onConfirm = { newName ->
+                val tier = dialogState.editingTier
+                if (tier != null && newName != tier.label) {
+                    val index = tiers.indexOfFirst { it.label == tier.label }
+                    if (index != -1) {
+                        // 更新层级名称
+                        tiers[index] = tiers[index].copy(label = newName)
+                        // 更新该层级下的所有图片的 tierLabel
+                        val imagesToUpdate = tierImages.filter { it.tierLabel == tier.label }
+                        imagesToUpdate.forEach { image ->
+                            val imageIndex = tierImages.indexOfFirst { it.id == image.id }
+                            if (imageIndex != -1) {
+                                tierImages[imageIndex] = image.copy(tierLabel = newName)
+                            }
+                        }
+                        // 更新层级位置信息
+                        val oldRect = tierRowPositions[tier.label]
+                        if (oldRect != null) {
+                            onTierRowPositionsChange(tierRowPositions - tier.label + (newName to oldRect))
+                        }
+                        AppLogger.i("修改层级名称: ${tier.label} -> $newName")
+                    }
                 }
+                dialogState.showEditNameDialog = false
+                dialogState.editingTier = null
+            }
+        )
+    }
+
+    // ==================== 层级颜色选择器对话框 ====================
+    if (dialogState.showColorPickerDialog && dialogState.editingTier != null) {
+        ColorPickerDialog(
+            currentColor = dialogState.editingTier!!.color,
+            onDismiss = {
+                dialogState.showColorPickerDialog = false
+                dialogState.editingTier = null
+            },
+            onConfirm = { newColor ->
+                val tier = dialogState.editingTier
+                if (tier != null) {
+                    val index = tiers.indexOfFirst { it.label == tier.label }
+                    if (index != -1) {
+                        tiers[index] = tiers[index].copy(color = newColor)
+                        AppLogger.i("修改层级颜色: ${tier.label}")
+                    }
+                }
+                dialogState.showColorPickerDialog = false
+                dialogState.editingTier = null
             }
         )
     }

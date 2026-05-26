@@ -5,8 +5,6 @@
     <string name="save">حفظ</string>
     <string name="reset">إعادة تعيين</string>
     <string name="reset_success">تمت إعادة التعيين</string>
-    <string name="delete_tier">حذف المستوى</string>
-    <string name="delete_tier_confirm">حذف %1$s؟ الصور تعود.</string>
     <string name="delete">حذف</string>
     <string name="cancel">إلغاء</string>
     <string name="clear">مسح</string>
