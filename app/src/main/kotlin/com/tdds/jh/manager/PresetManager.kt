@@ -394,9 +394,14 @@ class PresetManager(private val context: Context) {
 
     /**
      * 保存导入的图包到图包目录
-     * 自动检查并转换为WebP格式
+     * 自动检查并转换为WebP格式，支持密码解压
+     *
+     * @param sourceUri 源文件URI
+     * @param fileName 文件名
+     * @param password ZIP密码（可选）
+     * @return 保存的文件，失败返回null
      */
-    suspend fun saveImportedPackage(sourceUri: Uri, fileName: String): File? = withContext(Dispatchers.IO) {
+    suspend fun saveImportedPackage(sourceUri: Uri, fileName: String, password: String? = null): File? = withContext(Dispatchers.IO) {
         try {
             val destFile = File(packagesDir, fileName)
 
@@ -408,13 +413,29 @@ class PresetManager(private val context: Context) {
                 }
             }
 
-            // 检查是否需要转换格式
-            val needsConversion = checkPackageNeedsConversion(tempFile)
+            // 检查ZIP是否加密且需要密码
+            val zipFile = net.lingala.zip4j.ZipFile(tempFile)
+            if (zipFile.isEncrypted && password == null) {
+                tempFile.delete()
+                throw com.tdds.jh.resource.ZipPasswordRequiredException("该ZIP文件已加密，请输入密码")
+            }
+
+            // 检查是否需要转换格式（需要密码时先设置密码）
+            val needsConversion = if (zipFile.isEncrypted && password != null) {
+                zipFile.setPassword(password.toCharArray())
+                checkPackageNeedsConversionWithPassword(tempFile, password)
+            } else {
+                checkPackageNeedsConversion(tempFile)
+            }
 
             if (needsConversion) {
                 AppLogger.i("图包包含非WebP格式图片，开始转换: $fileName")
                 // 转换为WebP格式并覆盖
-                val convertedFile = convertPackageToWebP(tempFile)
+                val convertedFile = if (password != null) {
+                    convertPackageToWebPWithPassword(tempFile, password)
+                } else {
+                    convertPackageToWebP(tempFile)
+                }
                 if (convertedFile != null) {
                     convertedFile.copyTo(destFile, overwrite = true)
                     convertedFile.delete()
@@ -433,8 +454,129 @@ class PresetManager(private val context: Context) {
             }
 
             destFile
+        } catch (e: net.lingala.zip4j.exception.ZipException) {
+            // 密码错误或其他ZIP异常
+            if (e.message?.contains("password", ignoreCase = true) == true ||
+                e.message?.contains("Wrong Password", ignoreCase = true) == true) {
+                AppLogger.w("ZIP密码错误: ${e.message}")
+                throw com.tdds.jh.resource.ZipPasswordRequiredException("密码错误，请重新输入")
+            }
+            AppLogger.e("保存图包失败: ${e.message}")
+            null
         } catch (e: Exception) {
             AppLogger.e("保存图包失败: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * 检查图包是否需要转换格式（支持密码）
+     */
+    private fun checkPackageNeedsConversionWithPassword(packageFile: File, password: String): Boolean {
+        return try {
+            val zipFile = net.lingala.zip4j.ZipFile(packageFile)
+            zipFile.setPassword(password.toCharArray())
+            val fileHeaders = zipFile.fileHeaders
+            for (fileHeader in fileHeaders) {
+                if (!fileHeader.isDirectory) {
+                    val name = fileHeader.fileName.lowercase()
+                    // 检查是否有非WebP的图片格式
+                    if ((name.endsWith(".jpg") || name.endsWith(".jpeg") ||
+                                name.endsWith(".png") || name.endsWith(".gif")) &&
+                        !name.endsWith(".webp")) {
+                        return true
+                    }
+                }
+            }
+            false
+        } catch (e: Exception) {
+            AppLogger.e("检查图包格式失败(带密码)", e)
+            false
+        }
+    }
+
+    /**
+     * 将图包转换为WebP格式（支持密码）
+     */
+    private fun convertPackageToWebPWithPassword(sourceFile: File, password: String): File? {
+        return try {
+            val tempDir = context.cacheDir.resolve("convert_webp_${System.currentTimeMillis()}")
+            tempDir.mkdirs()
+
+            val outputFile = File(tempDir, "converted.zip")
+            val sourceZipFile = net.lingala.zip4j.ZipFile(sourceFile)
+            sourceZipFile.setPassword(password.toCharArray())
+
+            java.util.zip.ZipOutputStream(FileOutputStream(outputFile)).use { zipOut ->
+                val fileHeaders = sourceZipFile.fileHeaders
+                for (fileHeader in fileHeaders) {
+                    val entryName = fileHeader.fileName
+
+                    if (fileHeader.isDirectory) {
+                        zipOut.putNextEntry(java.util.zip.ZipEntry(entryName))
+                        zipOut.closeEntry()
+                    } else {
+                        val lowerName = entryName.lowercase()
+                        val isImage = lowerName.endsWith(".jpg") ||
+                                lowerName.endsWith(".jpeg") ||
+                                lowerName.endsWith(".png") ||
+                                lowerName.endsWith(".webp") ||
+                                lowerName.endsWith(".gif")
+
+                        if (isImage) {
+                            val fileName = entryName.substringAfterLast("/")
+                            val tempImageFile = File(tempDir, "temp_$fileName")
+                            sourceZipFile.getInputStream(fileHeader).use { input ->
+                                tempImageFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+
+                            val baseName = fileName.substringBeforeLast(".")
+                            val webpName = "$baseName.webp"
+                            val webpFile = File(tempDir, webpName)
+
+                            val conversionResult = WebPConverter.convertToWebP(tempImageFile, webpFile)
+
+                            val outputEntryName = if (entryName.contains("/")) {
+                                val dirPath = entryName.substringBeforeLast("/")
+                                "$dirPath/$webpName"
+                            } else {
+                                webpName
+                            }
+
+                            if (conversionResult.success) {
+                                zipOut.putNextEntry(java.util.zip.ZipEntry(outputEntryName))
+                                webpFile.inputStream().use { input ->
+                                    input.copyTo(zipOut)
+                                }
+                                zipOut.closeEntry()
+                            } else {
+                                zipOut.putNextEntry(java.util.zip.ZipEntry(entryName))
+                                tempImageFile.inputStream().use { input ->
+                                    input.copyTo(zipOut)
+                                }
+                                zipOut.closeEntry()
+                            }
+
+                            tempImageFile.delete()
+                            webpFile.delete()
+                        } else {
+                            zipOut.putNextEntry(java.util.zip.ZipEntry(entryName))
+                            sourceZipFile.getInputStream(fileHeader).use { input ->
+                                input.copyTo(zipOut)
+                            }
+                            zipOut.closeEntry()
+                        }
+                    }
+                }
+            }
+
+            val result = outputFile.copyTo(File(context.cacheDir, "final_converted.zip"), overwrite = true)
+            tempDir.deleteRecursively()
+            result
+        } catch (e: Exception) {
+            AppLogger.e("转换图包格式失败(带密码)", e)
             null
         }
     }

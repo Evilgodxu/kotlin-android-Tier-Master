@@ -98,6 +98,13 @@ class DialogState {
     // ==================== 图包导出状态 ====================
     var packageToExport by mutableStateOf<com.tdds.jh.resource.PackageItem.Imported?>(null)
 
+    // ==================== 外部图包导入状态 ====================
+    var showExternalPackagePasswordDialog by mutableStateOf(false)
+    var externalPackageUri by mutableStateOf<Uri?>(null)
+    var externalPackageFileName by mutableStateOf("")
+    var externalPackagePassword by mutableStateOf<String?>(null)
+    var externalPackagePasswordError by mutableStateOf(false)
+
     // ==================== 草稿恢复对话框 ====================
     var showDraftRestoreDialog by mutableStateOf(false)
     var showDraftLoadingDialog by mutableStateOf(false)
@@ -134,6 +141,11 @@ class DialogState {
         showImportOverwriteDialog = false
         showPreviewDialog = false
         isImportCreatingNewPreset = false
+        showExternalPackagePasswordDialog = false
+        externalPackageUri = null
+        externalPackageFileName = ""
+        externalPackagePassword = null
+        externalPackagePasswordError = false
     }
 
     /**

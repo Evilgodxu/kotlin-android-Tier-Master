@@ -527,40 +527,13 @@ fun TierListMakerApp(
                     // 处理 .zip 图包文件
                     if (isZipFile) {
                         AppLogger.i("从外部打开 .zip 图包文件 (VIEW): $dataUri, fileName: $fileName")
-                        isImportingPreset = true
                         skipDraftRestore = true
-                        try {
-                            // 保存图包到图包目录
-                            val savedPackageFile = withContext(Dispatchers.IO) {
-                                presetManager.saveImportedPackage(dataUri, fileName ?: "imported_${System.currentTimeMillis()}.zip")
+                        packageOperationHandler.handleExternalPackageImport(dataUri, fileName) { isLoading ->
+                            isImportingPreset = isLoading
+                            if (!isLoading) {
+                                activity.intent = null
                             }
-                            if (savedPackageFile != null) {
-                                AppLogger.i("外部图包导入成功: ${savedPackageFile.name}")
-                                showToastWithoutIcon(
-                                    context,
-                                    context.getString(R.string.package_import_success, savedPackageFile.nameWithoutExtension),
-                                    Toast.LENGTH_SHORT
-                                )
-                            } else {
-                                AppLogger.e("外部图包导入失败: 保存文件返回null")
-                                showToastWithoutIcon(
-                                    context,
-                                    context.getString(R.string.package_import_failed),
-                                    Toast.LENGTH_SHORT
-                                )
-                            }
-                        } catch (e: Exception) {
-                            AppLogger.e("外部打开 .zip 图包文件失败", e)
-                            showToastWithoutIcon(
-                                context,
-                                context.getString(R.string.package_import_failed, e.message),
-                                Toast.LENGTH_SHORT
-                            )
-                        } finally {
-                            isImportingPreset = false
                         }
-                        // 清除 intent 避免重复处理
-                        activity.intent = null
                         return@LaunchedEffect
                     }
                 }
@@ -601,7 +574,6 @@ fun TierListMakerApp(
                     // 处理 .zip 图包文件
                     if (isZipFile) {
                         AppLogger.i("从外部分享打开 .zip 图包文件 (SEND): $dataUri, fileName: $fileName")
-                        isImportingPreset = true
                         skipDraftRestore = true
                         packageOperationHandler.handleExternalPackageImport(dataUri, fileName) { isLoading ->
                             isImportingPreset = isLoading
@@ -1485,7 +1457,7 @@ fun TierListMakerApp(
             onFollowSystemThemeChange = onFollowSystemThemeChange,
             onDisableCustomFontChange = onDisableCustomFontChange,
             onNameBelowImageChange = { nameBelowImage = it },
-            onLanguageChange = { 
+            onLanguageChange = {
                 currentLanguage = it
                 languageChanged = true
             },
@@ -1495,6 +1467,26 @@ fun TierListMakerApp(
             packageExportLauncher = packageExportLauncher,
             presetFilePicker = presetFilePicker
         )
+
+        // ==================== 外部图包密码输入对话框 ====================
+        if (dialogState.showExternalPackagePasswordDialog) {
+            ZipPasswordDialog(
+                showError = dialogState.externalPackagePasswordError,
+                onDismiss = {
+                    dialogState.showExternalPackagePasswordDialog = false
+                    dialogState.externalPackageUri = null
+                    dialogState.externalPackageFileName = ""
+                    dialogState.externalPackagePassword = null
+                    dialogState.externalPackagePasswordError = false
+                    isImportingPreset = false
+                },
+                onConfirm = { password ->
+                    packageOperationHandler.continueExternalPackageImportWithPassword(password) { isLoading ->
+                        isImportingPreset = isLoading
+                    }
+                }
+            )
+        }
 
         // 加载资源中对话框（导入/导出/保存预设/导出图包）
         if (isImportingPreset || isExportingPreset || isSavingPreset || isExportingPackage) {

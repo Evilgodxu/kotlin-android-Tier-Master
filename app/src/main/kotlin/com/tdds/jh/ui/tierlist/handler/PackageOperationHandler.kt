@@ -221,6 +221,7 @@ class PackageOperationHandler(
 
     /**
      * 处理外部图包导入
+     * 先检测ZIP是否加密，如需要密码则显示密码输入对话框
      */
     fun handleExternalPackageImport(
         uri: Uri,
@@ -229,8 +230,73 @@ class PackageOperationHandler(
     ) {
         scope.launch {
             try {
+                // 先检测ZIP是否加密
+                val tempDir = context.cacheDir.resolve("zip_check_${System.currentTimeMillis()}")
+                tempDir.mkdirs()
+                val tempZipFile = java.io.File(tempDir, "temp.zip")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    tempZipFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                val zipFile = net.lingala.zip4j.ZipFile(tempZipFile)
+                val isEncrypted = zipFile.isEncrypted
+                tempDir.deleteRecursively()
+
+                if (isEncrypted) {
+                    // ZIP已加密，需要密码，显示密码对话框
+                    AppLogger.i("外部图包需要密码，显示密码输入对话框")
+                    dialogState.externalPackageUri = uri
+                    dialogState.externalPackageFileName = fileName ?: "imported_${System.currentTimeMillis()}.zip"
+                    dialogState.externalPackagePassword = null
+                    dialogState.externalPackagePasswordError = false
+                    dialogState.showExternalPackagePasswordDialog = true
+                } else {
+                    // 未加密，直接导入
+                    importExternalPackageInternal(uri, fileName, onLoadingStateChange)
+                }
+            } catch (e: Exception) {
+                AppLogger.e("检测外部图包加密状态失败", e)
+                showToast("图包导入失败: ${e.message}", android.widget.Toast.LENGTH_SHORT)
+                onLoadingStateChange(false)
+            }
+        }
+    }
+
+    /**
+     * 使用密码继续外部图包导入
+     */
+    fun continueExternalPackageImportWithPassword(
+        password: String,
+        onLoadingStateChange: (Boolean) -> Unit
+    ) {
+        val uri = dialogState.externalPackageUri
+        val fileName = dialogState.externalPackageFileName
+        if (uri == null) {
+            dialogState.showExternalPackagePasswordDialog = false
+            onLoadingStateChange(false)
+            return
+        }
+
+        dialogState.externalPackagePassword = password
+        dialogState.showExternalPackagePasswordDialog = false
+        importExternalPackageInternal(uri, fileName, onLoadingStateChange, password)
+    }
+
+    /**
+     * 内部方法：执行外部图包导入
+     */
+    private fun importExternalPackageInternal(
+        uri: Uri,
+        fileName: String?,
+        onLoadingStateChange: (Boolean) -> Unit,
+        password: String? = null
+    ) {
+        scope.launch {
+            try {
+                val actualFileName = fileName ?: "imported_${System.currentTimeMillis()}.zip"
                 val savedPackageFile = withContext(Dispatchers.IO) {
-                    presetManager.saveImportedPackage(uri, fileName ?: "imported_${System.currentTimeMillis()}.zip")
+                    presetManager.saveImportedPackage(uri, actualFileName, password)
                 }
                 if (savedPackageFile != null) {
                     AppLogger.i("外部图包导入成功: ${savedPackageFile.name}")
@@ -239,10 +305,18 @@ class PackageOperationHandler(
                     AppLogger.e("外部图包导入失败: 保存文件返回null")
                     showToast("图包导入失败", android.widget.Toast.LENGTH_SHORT)
                 }
+            } catch (e: com.tdds.jh.resource.ZipPasswordRequiredException) {
+                AppLogger.w("外部图包密码错误")
+                dialogState.externalPackagePasswordError = true
+                dialogState.showExternalPackagePasswordDialog = true
             } catch (e: Exception) {
                 AppLogger.e("外部图包导入失败", e)
                 showToast("图包导入失败: ${e.message}", android.widget.Toast.LENGTH_SHORT)
             } finally {
+                // 清理状态
+                dialogState.externalPackageUri = null
+                dialogState.externalPackageFileName = ""
+                dialogState.externalPackagePassword = null
                 onLoadingStateChange(false)
             }
         }
